@@ -158,8 +158,8 @@ int Serial::rxd(bytes &out) {
       DEBUG("read() = %d bytes", rc);
       for (int i = 0; i < rc; i++) out.push_back(buffer[i]);
     } else if (rc < 0) {
-      DEBUG("read returns %d => errno : %d = %s", rc, errno, strerror(errno));
       if (errno == EAGAIN || errno == EWOULDBLOCK) return 0;
+      DEBUG("read returns %d => errno : %d = %s", rc, errno, strerror(errno));
       return errno;
     } else {  // no data
       return 0;
