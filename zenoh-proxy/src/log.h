@@ -35,7 +35,10 @@ class LogS {
   stringstream _ss;
 
  public:
-  LogS(){};
+  typedef enum { LOG_TRACE, LOG_DEBUG, LOG_INFO, LOG_WARN, LOG_ERROR } Level;
+  Level level;
+  etl::format_spec  format = etl::format_spec().width(20).fill('#');
+  LogS() { level = LOG_INFO; };
 
   void operator<<(struct endl x) { flush(); }
 
@@ -64,19 +67,26 @@ class LogS {
 };
 
 extern LogS logger;
-#define LOGD \
-  logger << Sys::millis() << " D " << __SHORT_FILE__ << ":" << __LINE__ << " | "
-#define LOGI \
+#define LOGD                           \
+  if (logger.level >= LogS::LOG_DEBUG) \
+  logger << Sys::millis() << " D " << etl::setw(20) <<  __SHORT_FILE__ << ":" << __LINE__ << " | "
+#define LOGI                          \
+  if (logger.level >= LogS::LOG_INFO) \
   logger << Sys::millis() << " I " << __SHORT_FILE__ << ":" << __LINE__ << " | "
-#define LOGW \
+#define LOGW                          \
+  if (logger.level >= LogS::LOG_WARN) \
   logger << Sys::millis() << " W " << __SHORT_FILE__ << ":" << __LINE__ << " | "
-#define LOGE \
+#define LOGE                           \
+  if (logger.level >= LogS::LOG_ERROR) \
   logger << Sys::millis() << " E " << __SHORT_FILE__ << ":" << __LINE__ << " | "
 #define CHECK LOGI << " so far so good " << LEND
 
 #ifdef INFO
 #undef INFO
 #undef WARN
+#undef DEBUG
+#undef ERROR
+#echo INFO defined 
 #endif
 #define DEBUG(fmt, ...) LOGD << stringFormat(fmt, ##__VA_ARGS__) << LEND;
 #define INFO(fmt, ...) LOGI << stringFormat(fmt, ##__VA_ARGS__) << LEND;

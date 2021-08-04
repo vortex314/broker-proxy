@@ -1,4 +1,5 @@
 #include <broker_protocol.h>
+#include <log.h>
 #include <limero.h>
 #include <ppp_frame.h>
 #include <util.h>
@@ -107,7 +108,7 @@ namespace broker
               });
     _subscribers.push_back(s);
     incomingPublish >> s;
-    LOGI << " created subscriber :" << name.c_str() << endl;
+    LOGI << " created subscriber :" << name.c_str() << LEND;
     return *s;
   }
 }; // namespace broker

@@ -56,9 +56,9 @@ void BrokerSerial::init()
   uptimeSub = &subscriber<uint64_t>(brokerSrcPrefix + "system/uptime");
 
   fromSerialMsg >> [&](const Bytes &bs)
-  { LOGI << "RXD [" << bs.size() << "] " << cborDump(bs).c_str() << endl; };
+  { LOGI << "RXD [" << bs.size() << "] " << cborDump(bs).c_str() << LEND; };
   toSerialMsg >> [&](const Bytes &bs)
-  { LOGI << "TXD [" << bs.size() << "] " << cborDump(bs).c_str() << endl; };
+  { LOGI << "TXD [" << bs.size() << "] " << cborDump(bs).c_str() << LEND; };
 
   toSerialMsg >> _frameToBytes >> [&](const Bytes &bs)
   { _serial.write(bs.data(), bs.size()); };

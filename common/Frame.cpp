@@ -3,12 +3,14 @@
 //================================================================
 
 BytesToFrame::BytesToFrame() : Flow<Bytes, Bytes>() {}
+
 void BytesToFrame::on(const Bytes &bs) { handleRxd(bs); }
+
 void BytesToFrame::toStdout(const Bytes &bs)
 {
   if (bs.size())
   {
-    LOGW << "ignoring Bytes : " << bs.size() << LEND;
+    LOGW << "ignoring Bytes : " << bs.size()  << LEND;
   }
 }
 

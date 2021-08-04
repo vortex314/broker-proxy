@@ -24,7 +24,7 @@ LambdaSource<uint32_t> systemHeap([]()
 #ifdef __ESP32_ARDUINO__
                                     return ESP.getFreeHeap();
 #else
-                                    return 1000;
+                                    return 0;
 #endif
                                   });
 
@@ -39,7 +39,7 @@ void setup()
   Serial.begin(BAUDRATE);
   aliveTimer >> [](const TimerMsg &)
   {
-    LOGI << Sys::hostname() << " alive." << endl;
+    LOGI << Sys::hostname() << " alive." << LEND;
     systemBuild.request();
     systemHostname.request();
     systemHeap.request();
@@ -66,5 +66,5 @@ void loop()
   }
   uint64_t delay = (Sys::millis() - startTime);
   if (delay > 10)
-    LOGI << " delay : " << delay << endl;
+    LOGI << " delay : " << delay << LEND;
 }

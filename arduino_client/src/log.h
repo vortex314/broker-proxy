@@ -4,6 +4,7 @@
 #include <context.h>
 #include <etl/string.h>
 #include <etl/string_stream.h>
+#include <stdarg.h>
 using cstr = const char *const;
 
 static constexpr cstr past_last_slash(cstr str, cstr last_slash) {
@@ -28,8 +29,9 @@ String stringFormat(const char *fmt, ...);
 String hexDump(Bytes, const char *spacer = " ");
 String charDump(Bytes);
 
+#undef LEND
 extern struct endl {
-} FLUSH;
+} LEND;
 
 class LogS : public etl::string_stream {
   etl::string<256> myLog;
@@ -57,7 +59,7 @@ class LogS : public etl::string_stream {
   }
   void log(char level, const char *file, uint32_t line, const char *function,
            const char *fmt, ...) {
-    *this << Sys::millis() << " I " << file << ":" << line << fmt << FLUSH;
+    *this << Sys::millis() << " I " << file << ":" << line << fmt << LEND;
   }
 };
 
@@ -66,9 +68,9 @@ extern LogS logger;
   logger << Sys::millis() << " I " << __SHORT_FILE__ << ":" << __LINE__ << " | "
 #define LOGW \
   logger << Sys::millis() << " W " << __SHORT_FILE__ << ":" << __LINE__ << " | "
-#define CHECK LOGI << " so far so good " << endl
+#define CHECK LOGI << " so far so good " << LEND
 
-#define INFO(fmt, ...) LOGI << stringFormat(fmt, ##__VA_ARGS__) << FLUSH;
-#define WARN(fmt, ...) LOGW << stringFormat(fmt, ##__VA_ARGS__) << FLUSH;
+#define INFO(fmt, ...) LOGI << stringFormat(fmt, ##__VA_ARGS__) << LEND;
+#define WARN(fmt, ...) LOGW << stringFormat(fmt, ##__VA_ARGS__) << LEND;
 
 #endif /* C6B3C6F0_EFD2_46C1_BD00_5AA4B69BDDCC */
