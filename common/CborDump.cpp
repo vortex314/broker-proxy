@@ -86,8 +86,8 @@ CborError dumpCborRecursive(etl::string_stream &ss, CborValue *it, int nestingLe
       size_t n;
       ret = cbor_value_dup_byte_string(it, &buf, &n, it);
       CBOR_CHECK(ret, "parse byte string failed", err, ret);
-      ss << hexDump(Bytes(buf, buf + n)).c_str();
-      ss << ("");
+      ss << "h'" << hexDump(Bytes(buf, buf + n)).c_str();
+      ss << ("'");
       free(buf);
       continue;
     }

@@ -69,7 +69,6 @@ add_executable(test)
 
 target_sources(test PRIVATE 
   src/test.cpp 
-  src/util.cpp
   ${COMMON}/CborSerializer.cpp
   ${COMMON}/CborDeserializer.cpp
   ${COMMON}/CborDump.cpp
@@ -79,7 +78,6 @@ target_sources(proxy PRIVATE
   src/proxy.cpp 
   src/serial.cpp 
   src/config.cpp 
-  src/util.cpp
   src/serial_session.cpp
   src/BrokerZenoh.cpp
   ${COMMON}/ppp_frame.cpp 

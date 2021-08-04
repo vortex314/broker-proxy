@@ -5,6 +5,8 @@
 #include <context.h>
 #include <etl/string.h>
 #include <etl/string_stream.h>
+
+#include <iomanip>
 using cstr = const char *const;
 
 static constexpr cstr past_last_slash(cstr str, cstr last_slash) {
@@ -27,6 +29,7 @@ static constexpr cstr past_last_slash(cstr str) {
 String stringFormat(const char *fmt, ...);
 String hexDump(Bytes, const char *spacer = " ");
 String charDump(Bytes);
+std::string time_in_HH_MM_SS_MMM();
 
 extern struct endl {
 } LEND;
@@ -37,7 +40,7 @@ class LogS {
  public:
   typedef enum { LOG_TRACE, LOG_DEBUG, LOG_INFO, LOG_WARN, LOG_ERROR } Level;
   Level level;
-  etl::format_spec  format = etl::format_spec().width(20).fill('#');
+  etl::format_spec format = etl::format_spec().width(20).fill('#');
   LogS() { level = LOG_INFO; };
 
   void operator<<(struct endl x) { flush(); }
@@ -62,23 +65,25 @@ class LogS {
 
   void log(char level, const char *file, uint32_t line, const char *function,
            const char *fmt, ...) {
-    *this << Sys::millis() << " I " << file << ":" << line << fmt << LEND;
+    *this << Sys::millis() << ' ' << level << file << ":" << line << fmt
+          << LEND;
+  }
+  LogS &log(char level, const char *file, uint32_t line) {
+    _ss << time_in_HH_MM_SS_MMM() << ' ' << level << ' ' << setw(20) << file << ":"
+        << setw(4) << line << " | "; 
+    return *this;
   }
 };
 
 extern LogS logger;
-#define LOGD                           \
-  if (logger.level >= LogS::LOG_DEBUG) \
-  logger << Sys::millis() << " D " << etl::setw(20) <<  __SHORT_FILE__ << ":" << __LINE__ << " | "
-#define LOGI                          \
-  if (logger.level >= LogS::LOG_INFO) \
-  logger << Sys::millis() << " I " << __SHORT_FILE__ << ":" << __LINE__ << " | "
-#define LOGW                          \
-  if (logger.level >= LogS::LOG_WARN) \
-  logger << Sys::millis() << " W " << __SHORT_FILE__ << ":" << __LINE__ << " | "
-#define LOGE                           \
-  if (logger.level >= LogS::LOG_ERROR) \
-  logger << Sys::millis() << " E " << __SHORT_FILE__ << ":" << __LINE__ << " | "
+#define LOGD \
+  if (logger.level >= LogS::LOG_DEBUG) logger.log('D', __SHORT_FILE__, __LINE__)
+#define LOGI \
+  if (logger.level >= LogS::LOG_INFO) logger.log('I', __SHORT_FILE__, __LINE__)
+#define LOGW \
+  if (logger.level >= LogS::LOG_WARN) logger.log('W', __SHORT_FILE__, __LINE__)
+#define LOGE \
+  if (logger.level >= LogS::LOG_ERROR) logger.log('E', __SHORT_FILE__, __LINE__)
 #define CHECK LOGI << " so far so good " << LEND
 
 #ifdef INFO
@@ -86,7 +91,7 @@ extern LogS logger;
 #undef WARN
 #undef DEBUG
 #undef ERROR
-#echo INFO defined 
+#echo INFO defined
 #endif
 #define DEBUG(fmt, ...) LOGD << stringFormat(fmt, ##__VA_ARGS__) << LEND;
 #define INFO(fmt, ...) LOGI << stringFormat(fmt, ##__VA_ARGS__) << LEND;
