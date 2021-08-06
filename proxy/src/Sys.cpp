@@ -48,6 +48,13 @@ uint64_t Sys::millis()   // time in msec since boot, only increasing
 	return _upTime;
 }
 
+uint64_t Sys::micros()   // time in msec since boot, only increasing
+{
+	struct timespec deadline;
+	clock_gettime((int)CLOCK_MONOTONIC, &deadline);
+	return  deadline.tv_sec*1000000 + deadline.tv_nsec/1000;
+}
+
 
 void Sys::init()
 {

@@ -74,6 +74,8 @@ target_sources(brain PRIVATE
 src/Sys.cpp
 src/limero.cpp
 src/logger.cpp
+${COMMON}/CborSerializer.cpp
+${COMMON}/CborDeserializer.cpp
 src/BrokerZenoh.cpp
 ${COMMON}/CborDump.cpp
 src/brain.cpp
@@ -94,7 +96,6 @@ gtest_main
 -latomic)
 
 target_link_libraries(brain 
--L/home/lieven/workspace/limero/linux/build -llimero 
 -L/home/lieven/workspace/tinycbor/lib -l:libtinycbor.a
 -L/usr/local/lib/ -lzenohc
 -lpthread  
