@@ -1,4 +1,5 @@
 #if defined( __ESP8266_RTOS__ )|| defined(__LM4F120_ARDUINO__)
+// This is needed to get compiled or Arduino
 #include <stdint.h>
 #include <cstring>
 extern "C" void _exit(){};

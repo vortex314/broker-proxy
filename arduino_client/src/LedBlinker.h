@@ -10,12 +10,11 @@ class LedBlinker : public Actor {
 	public:
 		static const int BLINK_TIMER_ID=1;
 		TimerSource blinkTimer;
-		Sink<TimerMsg> timerHandler;
 		Sink<bool> blinkSlow;
 		LedBlinker(Thread& thr,uint32_t pin, uint32_t delay);
 		void init();
 		void delay(uint32_t d);
-		void onNext(const TimerMsg&);
+		void onNext(const TimerMsg&); 
 };
 
 #endif
