@@ -1,9 +1,9 @@
-#include <CborDeserializer.h>
+#include "CborDeserializer.h"
 
 #undef assert
 #define assert(expr) \
   if (!(expr))       \
-    LOGW << " assert failed " #expr << LEND;
+    LOGW << " assert failed :" #expr << LEND;
 
 CborDeserializer::CborDeserializer(size_t size)
 {

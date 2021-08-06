@@ -1,8 +1,8 @@
 #include <context.h>
 
-#include "LedBlinker.h"
-#include "Button.h"
 #include "BrokerSerial.h"
+#include "Button.h"
+#include "LedBlinker.h"
 
 LogS logger;
 Thread mainThread("main");
@@ -11,38 +11,31 @@ TimerSource aliveTimer(mainThread, 1000, true, "alive");
 Button button1(mainThread, PIN_BUTTON);
 Poller poller(mainThread);
 BrokerSerial brkr(mainThread, Serial);
-LambdaSource<uint64_t> systemUptime([]()
-                                    { return Sys::millis(); });
-LambdaSource<String> systemHostname([]()
-                                    { return Sys::hostname(); });
-LambdaSource<const char *> systemBoard([]()
-                                       { return Sys::board(); });
-LambdaSource<const char *> systemCpu([]()
-                                     { return Sys::cpu(); });
-LambdaSource<uint32_t> systemHeap([]()
-                                  {
+LambdaSource<uint64_t> systemUptime([]() { return Sys::millis(); });
+LambdaSource<String> systemHostname([]() { return Sys::hostname(); });
+LambdaSource<const char *> systemBoard([]() { return Sys::board(); });
+LambdaSource<const char *> systemCpu([]() { return Sys::cpu(); });
+LambdaSource<uint32_t> systemHeap([]() {
 #ifdef __ESP32_ARDUINO__
-                                    return ESP.getFreeHeap();
+  return ESP.getFreeHeap();
 #else
-                                    return 0;
+  return 0;
 #endif
-                                  });
+});
 
 ValueSource<String> systemBuild = String(__DATE__ " " __TIME__);
-void serialEvent()
-{
-  BrokerSerial::onRxd(&brkr);
-}
+void serialEvent() { BrokerSerial::onRxd(&brkr); }
 
-void setup()
-{
+void setup() {
   Serial.begin(BAUDRATE);
-  aliveTimer >> [](const TimerMsg &)
-  {
-    LOGI << Sys::hostname() << " alive." << LEND;
-    systemBuild.request();
-    systemHostname.request();
-    systemHeap.request();
+  aliveTimer >> [](const TimerMsg &) {
+    LOGI << Sys::hostname() << " alive."
+         << (brkr.connected() ? "connected" : "disconnected") << LEND;
+    if (brkr.connected()) {
+      systemBuild.request();
+      systemHostname.request();
+      systemHeap.request();
+    }
   };
   Sys::hostname(S(HOSTNAME));
 
@@ -56,12 +49,10 @@ void setup()
   systemHeap >> brkr.publisher<uint32_t>("system/heap");
 }
 
-void loop()
-{
+void loop() {
   uint64_t startTime = Sys::millis();
   mainThread.loop();
-  if (Serial.available())
-  {
+  if (Serial.available()) {
     BrokerSerial::onRxd(&brkr);
   }
   uint64_t delay = (Sys::millis() - startTime);

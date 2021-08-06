@@ -1,8 +1,8 @@
 
-#include "log.h"
-#include <string.h>
+#include "logger.h"
 #include <assert.h>
-String hexDump(Bytes bs, const char* spacer) {
+#include <string.h>
+String hexDump(Bytes bs, const char *spacer) {
   static char HEX_DIGITS[] = "0123456789ABCDEF";
   String out;
   for (uint8_t b : bs) {
@@ -24,26 +24,27 @@ String charDump(Bytes bs) {
   return out;
 }
 
-#include <string> 
-String stringFormat(const char* fmt, ...) {
+#include <stdarg.h>
+#include <string>
+String stringFormat(const char *fmt, ...) {
   static std::string str;
   str.clear();
-  int size = strlen(fmt) * 2 + 50;  // Use a rubric appropriate for your code
+  int size = strlen(fmt) * 2 + 50; // Use a rubric appropriate for your code
   va_list ap;
-  while (1) {  // Maximum two passes on a POSIX system...
+  while (1) { // Maximum two passes on a POSIX system...
     assert(size < 10240);
     str.resize(size);
     va_start(ap, fmt);
-    int n = vsprintf((char*)str.data(), fmt, ap);
+    int n = vsprintf((char *)str.data(), fmt, ap);
     va_end(ap);
-    if (n > -1 && n < size) {  // Everything worked
+    if (n > -1 && n < size) { // Everything worked
       str.resize(n);
       return str.c_str();
     }
-    if (n > -1)      // Needed size returned
-      size = n + 1;  // For null char
+    if (n > -1)     // Needed size returned
+      size = n + 1; // For null char
     else
-      size *= 2;  // Guess at a larger size (OS specific)
+      size *= 2; // Guess at a larger size (OS specific)
   }
   return str.c_str();
 }

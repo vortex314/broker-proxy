@@ -1,6 +1,6 @@
 #include <limero.h>
 #include <context.h>
-#include <log.h>
+#include <logger.h>
 NanoStats stats;
 
 /*

@@ -36,7 +36,7 @@ BrokerSerial::BrokerSerial(Thread &thr, Stream &serial)
       _serial(serial),
       _toCbor(100), _fromCbor(100),
       keepAliveTimer(thr, 1000, true),
-      connectTimer(thr, 10000, true) {}
+      connectTimer(thr, 3000, true) {}
 BrokerSerial::~BrokerSerial() {}
 
 void BrokerSerial::node(const char *n) { _node = n; };
@@ -85,7 +85,7 @@ void BrokerSerial::init()
   {
     connected = true;
     LOGI << " subscribers :" << _subscribers.size()
-         << "publishers :  " << _publishers.size();
+         << "publishers :  " << _publishers.size() << LEND;
     for (auto sub : _subscribers)
     {
       MsgSubscriber msgSubscriber = {sub->id(), sub->key()};
@@ -108,7 +108,7 @@ void BrokerSerial::init()
   connectTimer >> [&](const TimerMsg &tm)
   {
     uint64_t timeSinceLoopback = Sys::millis() - _loopbackReceived;
-    if (timeSinceLoopback > 5000)
+    if (timeSinceLoopback > 3000)
       connected = false;
   };
 

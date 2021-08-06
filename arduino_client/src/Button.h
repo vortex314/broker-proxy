@@ -2,6 +2,7 @@
 //
 #ifndef _BUTTON_H_
 #define _BUTTON_H_
+#include <logger.h>
 #include <limero.h>
 #ifndef IRAM_ATTR
 #define IRAM_ATTR 

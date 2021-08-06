@@ -1,9 +1,9 @@
 #ifndef AA72A63D_3140_4FF2_BCAF_6F744DBBD62B
 #define AA72A63D_3140_4FF2_BCAF_6F744DBBD62B
 #include <context.h>
+#include <logger.h>
 #include <cbor.h>
-#include <log.h>
-#include <malloc.h>
+#include <assert.h>
 
 class CborDeserializer
 {

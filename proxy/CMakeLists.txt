@@ -41,7 +41,7 @@ set(CMAKE_C_FLAGS "${CMAKE_CXX_FLAGS} -g -DZENOH_LINUX -DZENOH_TRANSPORT_UDP_IP 
 set (CMAKE_CXX_STANDARD 11)
  
 # set up our program
-add_executable(proxy)
+add_executable(zenoh-proxy)
 add_executable(brain)
 add_executable(test)
 

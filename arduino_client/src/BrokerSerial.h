@@ -1,5 +1,6 @@
 #ifndef BrokerSerial_H
 #define BrokerSerial_H
+#include <logger.h>
 #include <ReflectFromCbor.h>
 #include <ReflectToCbor.h>
 #include "broker.h"
@@ -7,7 +8,6 @@
 #include <limero.h>
 #include <Frame.h>
 #include <CborDump.h>
-#include <util.h>
 
 class BrokerSerial : public broker::Broker
 {

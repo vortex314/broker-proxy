@@ -1,11 +1,11 @@
 #ifndef AF93E627_5E7E_4364_B117_1F70EE6F434E
 #define AF93E627_5E7E_4364_B117_1F70EE6F434E
-
+#include <stdint.h>
 #include <vector>
 typedef std::vector<uint8_t> Bytes;
 typedef uint8_t byte;
 
-#ifdef __ARDUINO__
+#ifdef ARDUINO
 #include <Arduino.h>
 
 #ifdef __LM4F120_ARDUINO__ // some weird stuff with TIVA
@@ -21,10 +21,6 @@ bool isnan(long double x);
 int printf(const char *format, ...);
 #undef min
 #undef max
-#endif
-
-#ifdef __ESP32_ARDUINO__
-
 #endif
 
 typedef String ClientId;

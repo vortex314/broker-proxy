@@ -20,7 +20,7 @@ struct PubMsg {
 struct Sub {
   int id;
   string key;
-  std::function<void(int, const Bytes &)> callback;
+  std::function<void(int,string&, const Bytes &)> callback;
   zn_subscriber_t *zn_subscriber;
 };
 
@@ -47,7 +47,7 @@ class BrokerZenoh : public BrokerAbstract {
   int connect(string);
   int disconnect();
   int publisher(int, string);
-  int subscriber(int, string, std::function<void(int, const Bytes &)>);
+  int subscriber(int, string, std::function<void(int,string&, const Bytes &)>);
   int publish(int, Bytes &);
   int onSubscribe(SubscribeCallback);
   int unSubscribe(int);

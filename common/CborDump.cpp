@@ -139,7 +139,7 @@ CborError dumpCborRecursive(etl::string_stream &ss, CborValue *it, int nestingLe
       uint16_t val;
       ret = cbor_value_get_half_float(it, &val);
       CBOR_CHECK(ret, "parse half float type failed", err, ret);
-      ss << "__f16(" << hex << val << ")"
+      ss << "__f16(" << etl::hex << val << ")"
          << ",";
       break;
     }

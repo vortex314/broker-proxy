@@ -109,7 +109,7 @@ int main(int argc, char **argv) {
     MsgSubscriber msgSubscriber;
     if (msgSubscriber.reflect(fromCbor.fromBytes(frame)).success()) {
       int rc = broker.subscriber(
-          msgSubscriber.id, msgSubscriber.topic, [&](int id, const bytes &bs) {
+          msgSubscriber.id, msgSubscriber.topic, [&](int id, string& ,const bytes &bs) {
             MsgPublish msgPublish = {id, bs};
             toSerialMsg.on(msgPublish.reflect(toCbor).toBytes());
           });

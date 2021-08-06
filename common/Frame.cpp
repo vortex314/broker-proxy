@@ -1,4 +1,4 @@
-#include <CborDump.h>
+#include "CborDump.h"
 #include <Frame.h>
 #include <unistd.h>
 //================================================================
@@ -9,8 +9,8 @@ void BytesToFrame::on(const Bytes &bs) { handleRxd(bs); }
 
 void BytesToFrame::toStdout(const Bytes &bs) {
   if (bs.size() > 1) {
-#ifdef __ARDUINO__
-    Serial.print(String(bs));
+#ifdef ARDUINO
+    Serial.write(bs.data(),bs.size());
 #else
     ::write(1, ColorOrange, strlen(ColorOrange));
     ::write(1, bs.data(), bs.size());

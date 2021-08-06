@@ -12,7 +12,7 @@ class BrokerAbstract {
   virtual int disconnect() = 0;
   virtual int publisher(int, string) = 0;
   virtual int subscriber(int, string,
-                         std::function<void(int, const Bytes &)>) = 0;
+                         std::function<void(int, string&, const Bytes &)>) = 0;
   virtual int publish(int, Bytes &) = 0;
   virtual int unSubscribe(int) = 0;
 };
