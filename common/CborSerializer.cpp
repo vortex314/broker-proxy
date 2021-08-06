@@ -1,6 +1,5 @@
 #include <CborSerializer.h>
 #include <cbor.h>
-#include <util.h>
 #include <log.h>
 
 #undef assert

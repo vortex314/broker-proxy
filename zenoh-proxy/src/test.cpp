@@ -5,7 +5,6 @@
 #include <log.h>
 #include <assert.h>
 #include <broker_protocol.h>
-#include <util.h>
 
 #include <iostream>
 using namespace std;

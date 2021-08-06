@@ -4,7 +4,6 @@
 #include <cbor.h>
 #include <etl/string_stream.h>
 #include <log.h>
-#include <util.h>
 
 extern CborError dumpCborRecursive(etl::string_stream& ss, CborValue *it,
                                           int nestingLevel);

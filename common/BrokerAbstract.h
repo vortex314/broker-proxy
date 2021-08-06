@@ -2,7 +2,6 @@
 #define BEA3A05D_E4F4_41BB_A864_310EE1D37C62
 
 #include <limero.h>
-#include <util.h>
 typedef int (*SubscribeCallback)(int, Bytes);
 
 class BrokerAbstract {

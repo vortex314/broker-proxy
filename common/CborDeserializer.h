@@ -3,7 +3,6 @@
 #include <context.h>
 #include <cbor.h>
 #include <log.h>
-#include <util.h>
 #include <malloc.h>
 
 class CborDeserializer

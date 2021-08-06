@@ -3,7 +3,6 @@
 #include <limero.h>
 #include <serial.h>
 
-#include "util.h"
 typedef enum { CMD_OPEN, CMD_CLOSE } TcpCommand;
 
 class SerialSessionError;

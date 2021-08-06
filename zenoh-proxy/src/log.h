@@ -31,6 +31,11 @@ String hexDump(Bytes, const char *spacer = " ");
 String charDump(Bytes);
 std::string time_in_HH_MM_SS_MMM();
 
+#define ColorOrange "\033[33m"
+#define ColorGreen "\033[32m"
+#define ColorPurple "\033[35m"
+#define ColorDefault "\033[39m"
+
 extern struct endl {
 } LEND;
 
@@ -69,21 +74,21 @@ class LogS {
           << LEND;
   }
   LogS &log(char level, const char *file, uint32_t line) {
-    _ss << time_in_HH_MM_SS_MMM() << ' ' << level << ' ' << setw(20) << file << ":"
-        << setw(4) << line << " | "; 
+    _ss << time_in_HH_MM_SS_MMM() << ' ' << level << ' ' << setw(20) << file
+        << ":" << setw(4) << line << " | ";
     return *this;
   }
 };
 
 extern LogS logger;
 #define LOGD \
-  if (logger.level >= LogS::LOG_DEBUG) logger.log('D', __SHORT_FILE__, __LINE__)
+  if (logger.level <= LogS::LOG_DEBUG) logger.log('D', __SHORT_FILE__, __LINE__)
 #define LOGI \
-  if (logger.level >= LogS::LOG_INFO) logger.log('I', __SHORT_FILE__, __LINE__)
+  if (logger.level <= LogS::LOG_INFO) logger.log('I', __SHORT_FILE__, __LINE__)
 #define LOGW \
-  if (logger.level >= LogS::LOG_WARN) logger.log('W', __SHORT_FILE__, __LINE__)
+  if (logger.level <= LogS::LOG_WARN) logger.log('W', __SHORT_FILE__, __LINE__)
 #define LOGE \
-  if (logger.level >= LogS::LOG_ERROR) logger.log('E', __SHORT_FILE__, __LINE__)
+  if (logger.level <= LogS::LOG_ERROR) logger.log('E', __SHORT_FILE__, __LINE__)
 #define CHECK LOGI << " so far so good " << LEND
 
 #ifdef INFO
@@ -91,7 +96,7 @@ extern LogS logger;
 #undef WARN
 #undef DEBUG
 #undef ERROR
-#echo INFO defined
+#error INFO defined
 #endif
 #define DEBUG(fmt, ...) LOGD << stringFormat(fmt, ##__VA_ARGS__) << LEND;
 #define INFO(fmt, ...) LOGI << stringFormat(fmt, ##__VA_ARGS__) << LEND;

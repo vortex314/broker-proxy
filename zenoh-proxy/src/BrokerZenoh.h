@@ -1,7 +1,6 @@
 #ifndef _ZENOH_SESSION_H_
 #define _ZENOH_SESSION_H_
 #include "limero.h"
-#include "util.h"
 #include <log.h>
 #include "BrokerAbstract.h"
 extern "C" {

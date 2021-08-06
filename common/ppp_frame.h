@@ -4,7 +4,6 @@
 #include <stdint.h>
 
 #include <log.h>
-#include <util.h>
 #include <broker_protocol.h>
 
 #define PPP_FCS_SIZE 2
