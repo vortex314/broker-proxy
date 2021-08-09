@@ -69,12 +69,12 @@ CborError dumpCborRecursive(etl::string_stream &ss, CborValue *it,
       CBOR_CHECK(ret, "parse int64 failed", err, ret);
       bool isUnsignedInteger = cbor_value_is_unsigned_integer(it);
       if (isUnsignedInteger) {
-        ss << (unsigned long long)val << ",";
+        ss << (uint64_t)val << ",";
       } else {
         /* CBOR stores the negative number X as -1 - X
          * (that is, -1 is stored as 0, -2 as 1 and so forth) */
         if (++val) { /* unsigned overflow may happen */
-          ss << (long long)val << ",";
+          ss << (int64_t)val << ",";
         } else {
           ss << -1234567890123456LL << ",";
         }

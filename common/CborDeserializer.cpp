@@ -21,8 +21,12 @@ CborDeserializer &CborDeserializer::begin()
 
   _err = cbor_parser_init(_buffer, _size, 0, &_decoder, &_rootIt);
   assert(_err == CborNoError);
+  if ( cbor_value_is_container(&_rootIt)) {
   _err = cbor_value_enter_container(&_rootIt, &_it);
   assert(_err == CborNoError);
+  }else {
+    _err = CborErrorIllegalType;
+  }
   return *this;
 };
 

@@ -42,21 +42,22 @@ int main(int argc, char **argv) {
   int rc = broker->connect("brain");
   rc =
       broker->subscriber(1, "src/**", [&](int id, string key, const Bytes &bs) {
-        LOGI << "Sub rxd  : " << key << " = " << id << ':' << cborDump(bs)
-             << LEND;
         if (key == "src/brain/system/uptime") {
           uint64_t ts;
+          uint64_t delay;
           cborDeserializer.fromBytes(bs).begin() >> ts;
-          if ( cborDeserializer.success() )
-          LOGI << " latency : " << (Sys::micros() - ts) << LEND;
+          delay = Sys::micros() - ts;
+          LOGI << " recv ts " << ts << LEND;
+
+          if (cborDeserializer.success())
+            LOGI << " latency : " << delay << " usec "<< LEND;
         }
       });
   rc = broker->publisher(2, "src/brain/system/uptime");
   rc = broker->publisher(3, "src/brain/system/latency");
 
   pubTimer >> [&](const TimerMsg &) {
-    LOGI << " Sys::micros() " << Sys::micros() << LEND;
-    Bytes bs = (cborSerializer.begin() << Sys::micros()).end().toBytes();
+    Bytes bs = cborSerializer.begin().add(Sys::micros()).end().toBytes();
     broker->publish(2, bs);
   };
   workerThread.run();

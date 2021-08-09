@@ -115,7 +115,7 @@ int BrokerZenoh::publisher(int id, string key) {
 int BrokerZenoh::publish(int id, Bytes &bs) {
   auto it = _publishers.find(id);
   if (it != _publishers.end()) {
-    INFO("publish %d : %s => %s ", id, it->second->key.c_str(), cborDump(bs).c_str());
+//    INFO("publish %d : %s => %s ", id, it->second->key.c_str(), cborDump(bs).c_str());
     int rc =
         zn_write(_zenoh_session, it->second->zn_reskey, bs.data(), bs.size());
     if (rc) WARN("zn_write failed.");

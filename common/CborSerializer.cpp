@@ -1,8 +1,9 @@
 #include "CborSerializer.h"
 
-
 #undef assert
-#define assert(xxx) if (!(xxx)) LOGW << " assert failed " << #xxx << LEND;
+#define assert(xxx)                                                            \
+  if (!(xxx))                                                                  \
+    LOGW << " assert failed " << #xxx << LEND;
 
 CborSerializer::CborSerializer(int size) {
   _buffer = new uint8_t[size];
@@ -11,53 +12,59 @@ CborSerializer::CborSerializer(int size) {
   //   cbor_encoder_create_array(&_encoderRoot, &_encoder,
   //   CborIndefiniteLength);
 }
-CborSerializer::~CborSerializer(){
-  delete[] _buffer;
-}
-CborSerializer &CborSerializer::operator<<( const int &t) {
+CborSerializer::~CborSerializer() { delete[] _buffer; }
+CborSerializer &CborSerializer::operator<<(const int t) {
   _err = cbor_encode_int(&_encoder, t);
   assert(_err == 0);
   return *this;
 }
-CborSerializer &CborSerializer::operator<<( int &t) {
-  _err = cbor_encode_int(&_encoder, t);
-  assert(_err == 0);
-  return *this;
-}
-CborSerializer &CborSerializer::operator<<( uint64_t &t) {
+CborSerializer &CborSerializer::operator<<(uint32_t t) {
   _err = cbor_encode_uint(&_encoder, t);
   assert(_err == 0);
   return *this;
 }
-CborSerializer &CborSerializer::operator<<( int64_t &t) {
+CborSerializer &CborSerializer::operator<<(uint64_t t) {
+  _err = cbor_encode_uint(&_encoder, t);
+  assert(_err == 0);
+  return *this;
+}
+CborSerializer &CborSerializer::operator<<(int64_t t) {
   _err = cbor_encode_int(&_encoder, t);
   assert(_err == 0);
   return *this;
 }
-CborSerializer &CborSerializer::operator<<( String &t) {
+CborSerializer &CborSerializer::operator<<(String t) {
   _err = cbor_encode_text_string(&_encoder, t.c_str(), t.length());
   return *this;
 }
-
-CborSerializer &CborSerializer::operator<<( const String &t) {
+/*
+CborSerializer &CborSerializer::operator<<(const String t) {
   _err = cbor_encode_text_string(&_encoder, t.c_str(), t.length());
   return *this;
 }
+CborSerializer &CborSerializer::operator<<(int t) {
+  LOGI << " encoding int " << LEND;
 
-CborSerializer &CborSerializer::operator<<(double &t) {
+  _err = cbor_encode_int(&_encoder, t);
+  assert(_err == 0);
+  return *this;
+}
+
+CborSerializer &CborSerializer::operator<<(const Bytes &t) {
+  return *this << (Bytes &)t;
+}
+*/
+CborSerializer &CborSerializer::operator<<(double t) {
+  CHECK;
   _err = cbor_encode_double(&_encoder, t);
   assert(_err == 0);
   return *this;
 }
 
-CborSerializer &CborSerializer::operator<<( Bytes &t) {
+CborSerializer &CborSerializer::operator<<(Bytes t) {
   _err = cbor_encode_byte_string(&_encoder, t.data(), t.size());
   assert(_err == 0);
   return *this;
-}
-
-CborSerializer &CborSerializer::operator<<( const Bytes &t) {
-  return *this << (Bytes&) t;
 }
 
 CborSerializer &CborSerializer::begin() {
@@ -74,5 +81,7 @@ CborSerializer &CborSerializer::end() {
   _size = cbor_encoder_get_buffer_size(&_encoderRoot, _buffer);
   return *this;
 }
+
+bool CborSerializer::success() { return _err == 0; }
 
 Bytes CborSerializer::toBytes() { return Bytes(_buffer, _buffer + _size); }
