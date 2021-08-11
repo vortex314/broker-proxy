@@ -40,7 +40,7 @@ class BrokerZenoh : public BrokerAbstract {
   int scout();
 
  public:
-  ValueSource<bool> connected;
+  Source<bool> connected();
 
   BrokerZenoh(Thread &, Config &);
   int init();

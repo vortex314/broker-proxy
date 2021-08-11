@@ -44,6 +44,8 @@ set (CMAKE_CXX_STANDARD 11)
 add_executable(zenoh-proxy)
 add_executable(brain)
 add_executable(test)
+add_executable(udp-client)
+
 
 target_sources(test PRIVATE 
 src/limero.cpp
@@ -57,9 +59,11 @@ src/test.cpp
 
 target_sources(zenoh-proxy PRIVATE 
   src/proxy.cpp 
-  src/serial.cpp 
   src/config.cpp 
-  src/serial_session.cpp
+  src/SessionSerial.cpp
+  src/serial.cpp 
+  src/SessionUdp.cpp
+  src/Udp.cpp 
   src/BrokerZenoh.cpp
   src/logger.cpp
   src/Sys.cpp
@@ -81,6 +85,17 @@ ${COMMON}/CborDump.cpp
 src/brain.cpp
 )
 
+target_sources(udp-client PRIVATE
+src/Sys.cpp
+src/limero.cpp
+src/logger.cpp
+${COMMON}/CborSerializer.cpp
+${COMMON}/CborDeserializer.cpp
+${COMMON}/CborDump.cpp
+src/udp_client.cpp
+src/Udp.cpp
+)
+
 target_link_libraries(zenoh-proxy 
 -L/home/lieven/workspace/tinycbor/lib -l:libtinycbor.a
 -L/usr/local/lib/ -lzenohc
@@ -89,6 +104,13 @@ target_link_libraries(zenoh-proxy
 -latomic)
 
 target_link_libraries(test 
+-L/home/lieven/workspace/tinycbor/lib -l:libtinycbor.a
+gtest_main
+-lpthread  
+-lrt  
+-latomic)
+
+target_link_libraries(udp-client 
 -L/home/lieven/workspace/tinycbor/lib -l:libtinycbor.a
 gtest_main
 -lpthread  

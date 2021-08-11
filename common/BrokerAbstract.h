@@ -6,7 +6,7 @@ typedef int (*SubscribeCallback)(int, Bytes);
 
 class BrokerAbstract {
  public:
-  ValueSource<bool> connected;
+  Source<bool>& connected();
   virtual int init() = 0;
   virtual int connect(string) = 0;
   virtual int disconnect() = 0;

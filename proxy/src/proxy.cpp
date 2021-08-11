@@ -1,6 +1,6 @@
 #include <ArduinoJson.h>
-#include <log.h>
 #include <config.h>
+#include <log.h>
 #include <stdio.h>
 
 #include <thread>
@@ -11,13 +11,14 @@ using namespace std;
 
 LogS logger;
 #include <BrokerZenoh.h>
-#include <ReflectToCbor.h>
 #include <CborDump.h>
-#include <ReflectFromCbor.h>
-#include <ReflectToDisplay.h>
 #include <Frame.h>
+#include <ReflectFromCbor.h>
+#include <ReflectToCbor.h>
+#include <ReflectToDisplay.h>
+#include <SessionSerial.h>
+#include <SessionUdp.h>
 #include <broker_protocol.h>
-#include <serial_session.h>
 const int MsgPublish::TYPE;
 const int MsgPublisher::TYPE;
 const int MsgSubscriber::TYPE;
@@ -30,10 +31,33 @@ const char *CMD_TO_STRING[] = {"B_CONNECT",   "B_DISCONNECT", "B_SUBSCRIBER",
                                "B_QUERY"};
 StaticJsonDocument<10240> doc;
 
+#define fatal(message)                                                         \
+  {                                                                            \
+    LOGW << message << LEND;                                                   \
+    exit(-1);                                                                  \
+  }
+
 Config loadConfig(int argc, char **argv) {
   Config cfg = doc.to<JsonObject>();
-  if (argc > 1) cfg["serial"]["port"] = argv[1];
-  if (argc > 2) cfg["serial"]["baudrate"] = atoi(argv[2]);
+  if (argc > 1) {
+    if (strcmp(argv[1], "udp") == 0) {
+      if (argc > 2) {
+        int x = atoi(argv[2]);
+        cfg["udp"]["port"] = atoi(argv[2]);
+      } else
+        fatal("missing arguments for udp ");
+    } else if (strcmp(argv[1], "serial") == 0) {
+      if (argc > 2) {
+        cfg["serial"]["port"] = argv[2];
+        cfg["serial"]["baudrate"] = 115200;
+        if (argc > 3)
+          cfg["serial"]["baudrate"] = atoi(argv[3]);
+      } else
+        fatal(" missing arguments for serial ");
+    }
+  } else {
+    fatal(" insufficient arguments ");
+  }
   string sCfg;
   serializeJson(doc, sCfg);
   INFO(" config : %s ", sCfg.c_str());
@@ -46,7 +70,7 @@ class MsgFilter : public LambdaFlow<bytes, Bytes> {
   MsgBase msgBase;
   ReflectFromCbor _fromCbor;
 
- public:
+public:
   MsgFilter(int msgType)
       : LambdaFlow<bytes, Bytes>([this](bytes &out, const bytes &in) {
           //         INFO(" filter on msgType : %d in %s ",
@@ -72,73 +96,78 @@ int main(int argc, char **argv) {
 
   Config serialConfig = config["serial"];
 
-  SerialSession serial(workerThread, serialConfig);
+  // SessionSerial session(workerThread, serialConfig);
+
+  SessionAbstract *session;
+  if (config["serial"])
+    session = new SessionSerial(workerThread, config["serial"]);
+  else if (config["udp"])
+    session = new SessionUdp(workerThread, config["udp"]);
+  else
+    fatal(" no interface specified.");
 
   Config brokerConfig = config["zenoh"];
   BrokerZenoh broker(workerThread, brokerConfig);
-  BytesToFrame bytesToFrame;
   ReflectFromCbor fromCbor(1024);
   ReflectToCbor toCbor(1024);
-  FrameToBytes frameToBytes;
-  ValueFlow<Bytes> toSerialMsg;
-  ValueFlow<Bytes> fromSerialMsg;
-
-  serial.init();
-  serial.connect();
+  CHECK;
+  session->init();
+  session->connect();
   // zSession.scout();
   broker.init();
   // CBOR de-/serialization
-  serial.incoming >> bytesToFrame >> fromSerialMsg;
-  toSerialMsg >> frameToBytes >> serial.outgoing;
 
-  toSerialMsg >> [&](const bytes &bs) { INFO("TXD %s", cborDump(bs).c_str()); };
-  fromSerialMsg >>
+  session->incoming() >>
       [&](const bytes &bs) { INFO("RXD %s", cborDump(bs).c_str()); };
 
   // filter commands from uC
-  fromSerialMsg  >> MsgFilter::nw(B_CONNECT) >> [&](const bytes &frame) {
+  session->incoming() >> MsgFilter::nw(B_CONNECT) >> [&](const bytes &frame) {
     MsgConnect msgConnect;
     if (msgConnect.reflect(fromCbor.fromBytes(frame)).success()) {
       int rc = broker.connect(msgConnect.clientId);
       MsgConnect msgConnectReply = {"connected"};
-      toSerialMsg.on(msgConnectReply.reflect(toCbor).toBytes());
+      session->outgoing().on(msgConnectReply.reflect(toCbor).toBytes());
     }
   };
 
-  fromSerialMsg >> MsgFilter::nw(B_SUBSCRIBER) >> [&](const bytes &frame) {
-    MsgSubscriber msgSubscriber;
-    if (msgSubscriber.reflect(fromCbor.fromBytes(frame)).success()) {
-      int rc = broker.subscriber(
-          msgSubscriber.id, msgSubscriber.topic, [&](int id, string& ,const bytes &bs) {
-            MsgPublish msgPublish = {id, bs};
-            toSerialMsg.on(msgPublish.reflect(toCbor).toBytes());
-          });
-      if (rc)
-        WARN(" subscriber (%s,..) = %d ", msgSubscriber.topic.c_str(), rc);
-    }
-  };
+  session->incoming() >> MsgFilter::nw(B_SUBSCRIBER) >>
+      [&](const bytes &frame) {
+        MsgSubscriber msgSubscriber;
+        if (msgSubscriber.reflect(fromCbor.fromBytes(frame)).success()) {
+          int rc = broker.subscriber(
+              msgSubscriber.id, msgSubscriber.topic,
+              [&](int id, string &, const bytes &bs) {
+                MsgPublish msgPublish = {id, bs};
+                session->outgoing().on(msgPublish.reflect(toCbor).toBytes());
+              });
+          if (rc)
+            WARN(" subscriber (%s,..) = %d ", msgSubscriber.topic.c_str(), rc);
+        }
+      };
 
-  fromSerialMsg >> MsgFilter::nw(B_PUBLISHER) >> [&](const bytes &frame) {
+  session->incoming() >> MsgFilter::nw(B_PUBLISHER) >> [&](const bytes &frame) {
     MsgPublisher msgPublisher;
     if (msgPublisher.reflect(fromCbor.fromBytes(frame)).success()) {
       int rc = broker.publisher(msgPublisher.id, msgPublisher.topic);
-      if (rc) WARN("  publish (%s,..) = %d ", msgPublisher.topic.c_str(), rc);
+      if (rc)
+        WARN("  publish (%s,..) = %d ", msgPublisher.topic.c_str(), rc);
     };
   };
 
-  fromSerialMsg >> MsgFilter::nw(B_PUBLISH) >> [&](const bytes &frame) {
+  session->incoming() >> MsgFilter::nw(B_PUBLISH) >> [&](const bytes &frame) {
     MsgPublish msgPublish;
     if (msgPublish.reflect(fromCbor.fromBytes(frame)).success()) {
       broker.publish(msgPublish.id, msgPublish.value);
     }
   };
 
-  fromSerialMsg >> MsgFilter::nw(B_DISCONNECT) >> [&](const bytes &frame) {
-    MsgDisconnect msgDisconnect;
-    if (msgDisconnect.reflect(fromCbor.fromBytes(frame)).success()) {
-      broker.disconnect();
-    }
-  };
+  session->incoming() >> MsgFilter::nw(B_DISCONNECT) >>
+      [&](const bytes &frame) {
+        MsgDisconnect msgDisconnect;
+        if (msgDisconnect.reflect(fromCbor.fromBytes(frame)).success()) {
+          broker.disconnect();
+        }
+      };
   /*
     frameToCbor >> CborFilter::nw(B_RESOURCE) >> [&](const cbor &param) {
       INFO("Z_RESOURCE");
@@ -156,9 +185,11 @@ int main(int argc, char **argv) {
       }
     };*/
 
-  serial.connected >> [&](const bool isConnected) {
-    if (!isConnected) broker.disconnect();
+  session->connected() >> [&](const bool isConnected) {
+    if (!isConnected)
+      broker.disconnect();
   };
 
   workerThread.run();
+  delete session;
 }

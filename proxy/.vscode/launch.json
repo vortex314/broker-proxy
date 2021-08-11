@@ -11,11 +11,10 @@
             "name": "g++ - Build and debug active file",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/build/myBroker",
+            "program": "${workspaceFolder}/build/zenoh-proxy",
             "args": [
-                "/topic/aaa",
-                "valueBBBB",
-                "tcp/localhost:7447"
+                "udp",
+                "12000"
             ],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
