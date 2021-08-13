@@ -20,8 +20,8 @@ set (ZENOH_TRANSPORT_UDP "ON")
 
 set(ZENOHC /home/lieven/workspace/zenoh-c)
 set(LIMERO /home/lieven/workspace/limero )
-set(TINYCBOR /home/lieven/workspace/tinycbor )
-set(ETL /home/lieven/workspace/etl )
+set(TINYCBOR ../tinycbor )
+set(ETL ../etl )
 set(COMMON ../common )
 
 

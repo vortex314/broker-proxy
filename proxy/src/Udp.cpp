@@ -93,9 +93,9 @@ int main(int argc,char* argv[]) {
 #include <string.h> //memset
 #include <sys/socket.h>
 bool getInetAddr(in_addr_t &addr, std::string &hostname) {
+  addr = (in_addr_t)(-1);
   if (isdigit(hostname[0])) { // IP dot notation
     addr = inet_addr(hostname.c_str());
-    return addr != (in_addr_t)(-1);
   } else { // host name
     int sockfd;
     struct addrinfo hints, *servinfo, *p;
@@ -114,14 +114,13 @@ bool getInetAddr(in_addr_t &addr, std::string &hostname) {
     // loop through all the results and connect to the first we can
     for (p = servinfo; p != NULL; p = p->ai_next) {
       if (p->ai_addr->sa_family == AF_INET) {
-        sockaddr* sa = p->ai_addr;
-        addr = ((sockaddr_in*)sa)->sin_addr.s_addr;
+        sockaddr *sa = p->ai_addr;
+        addr = ((sockaddr_in *)sa)->sin_addr.s_addr;
       }
     }
-
     freeaddrinfo(servinfo); // all done with this structure
-    return 0;
   }
+  return addr != (in_addr_t)(-1);
 }
 
 std::vector<std::string> split(const std::string &s, char seperator) {
@@ -158,5 +157,6 @@ bool getNumber(uint16_t &x, const string &s) {
 bool UdpAddress::fromUri(UdpAddress &udpAddress, std::string uri) {
   auto parts = split(uri, ':');
 
-  return parts.size() == 2 && getInetAddr(udpAddress.ip,parts[0]) && getNumber(udpAddress.port,parts[1]);
+  return parts.size() == 2 && getInetAddr(udpAddress.ip, parts[0]) &&
+         getNumber(udpAddress.port, parts[1]);
 }
