@@ -38,9 +38,10 @@ class BrokerZenoh : public BrokerAbstract {
   static void subscribeHandler(const zn_sample_t *, const void *);
   zn_reskey_t resource(string topic);
   int scout();
+  ValueFlow<bool> _connected;
 
  public:
-  Source<bool> connected();
+  Source<bool>& connected();
 
   BrokerZenoh(Thread &, Config &);
   int init();

@@ -9,6 +9,7 @@
                 "${workspaceFolder}/../../limero/inc/",
                 "${workspaceFolder}/../../zenoh-c/include/",
                 "${workspaceFolder}/../../tinycbor/src",
+                "${workspaceFolder}/../hiredis",
                 "${workspaceFolder}/../../etl/include",
                 "${workspaceFolder}/src/",
                 "${workspaceFolder}/../../ArduinoJson/src"

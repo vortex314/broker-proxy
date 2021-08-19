@@ -23,7 +23,7 @@ LambdaSource<uint32_t> systemHeap([]() {
 #endif
 });
 
-ValueSource<String> systemBuild = String(__DATE__ " " __TIME__);
+ValueFlow<String> systemBuild = String(__DATE__ " " __TIME__);
 void serialEvent() { BrokerSerial::onRxd(&brkr); }
 
 void setup() {

@@ -1,14 +1,15 @@
 #include <SessionSerial.h>
 #include <ppp_frame.h>
+#include <CborDump.h>
 
 SessionSerial::SessionSerial(Thread &thread, Config config)
-    : SessionAbstract(thread, config), _incomingMessage(10,"_incomingMessage"), _outgoingMessage(10,"_outgoingMessage"),
-      _incomingSerial(10,"_incomingSerial") {
+    : SessionAbstract(thread, config), _incomingMessage(10, "_incomingMessage"),
+      _outgoingMessage(10, "_outgoingMessage"),
+      _incomingSerial(10, "_incomingSerial") {
 
   _errorInvoker = new SerialSessionError(*this);
   _port = config["port"].as<std::string>();
   _baudrate = config["baudrate"].as<uint32_t>();
-
 }
 
 bool SessionSerial::init() {
@@ -21,6 +22,8 @@ bool SessionSerial::init() {
     //        hexDump(data).c_str());
     _serialPort.txd(data);
   };
+  _outgoingMessage >>
+      [&](const bytes &bs) { INFO("TXD %s", cborDump(bs).c_str()); };
   return true;
 }
 
@@ -52,14 +55,8 @@ void SessionSerial::onError() { disconnect(); }
 
 int SessionSerial::fd() { return _serialPort.fd(); }
 
-Source<Bytes>& SessionSerial::incoming() {
-  return _incomingMessage;
-}
+Source<Bytes> &SessionSerial::incoming() { return _incomingMessage; }
 
-Sink<Bytes>& SessionSerial::outgoing() {
-  return _outgoingMessage;
-}
+Sink<Bytes> &SessionSerial::outgoing() { return _outgoingMessage; }
 
-Source<bool>& SessionSerial::connected() {
-  return _connected;
-}
+Source<bool> &SessionSerial::connected() { return _connected; }

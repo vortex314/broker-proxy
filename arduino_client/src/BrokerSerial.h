@@ -12,7 +12,7 @@
 class BrokerSerial : public broker::Broker
 {
   Stream &_serial;
-  ValueSource<Bytes> serialRxd;
+  ValueFlow<Bytes> serialRxd;
   broker::Publisher<uint64_t> *uptimePub;
   broker::Publisher<uint64_t> *latencyPub;
   broker::Subscriber<uint64_t> *uptimeSub;
@@ -28,7 +28,7 @@ class BrokerSerial : public broker::Broker
   String _node;
 
 public:
-  ValueSource<bool> connected;
+  ValueFlow<bool> connected;
   static void onRxd(void *);
   TimerSource keepAliveTimer;
   TimerSource connectTimer;

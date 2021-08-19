@@ -3,8 +3,6 @@
 #include <assert.h>
 #include <string.h>
 
-
-
 String hexDump(Bytes bs, const char *spacer) {
   static char HEX_DIGITS[] = "0123456789ABCDEF";
   String out;
@@ -33,6 +31,8 @@ string stringFormat(const char *fmt, ...) {
   static std::string str;
   str.clear();
   int size = strlen(fmt) * 2 + 50; // Use a rubric appropriate for your code
+  if (size > 10240)
+    fprintf(stdout, " invalid log size\n");
   va_list ap;
   while (1) { // Maximum two passes on a POSIX system...
     assert(size < 10240);

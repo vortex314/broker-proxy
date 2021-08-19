@@ -50,7 +50,7 @@ CborDeserializer &CborDeserializer::operator>>(Bytes &t)
     t = Bytes(temp, temp + size);
     free(temp);
   }
-  _err = cbor_value_advance(&_it);
+  if ( !_err) _err = cbor_value_advance(&_it);
   return *this;
 }
 
@@ -65,7 +65,7 @@ CborDeserializer &CborDeserializer::operator>>(String &t)
     t = temp;
     ::free(temp);
   }
-  _err = cbor_value_advance(&_it);
+  if ( !_err) _err = cbor_value_advance(&_it);
   return *this;
 }
 
@@ -76,7 +76,7 @@ CborDeserializer &CborDeserializer::operator>>(int &t)
     _err = cbor_value_get_int(&_it, &t);
     assert(_err == CborNoError);
   }
-  _err = cbor_value_advance_fixed(&_it);
+  if ( !_err) _err = cbor_value_advance_fixed(&_it);
   return *this;
 }
 
@@ -87,7 +87,7 @@ CborDeserializer &CborDeserializer::operator>>(uint64_t &t)
     _err = cbor_value_get_uint64(&_it, &t);
     assert(_err == CborNoError);
   }
-  _err = cbor_value_advance_fixed(&_it);
+  if ( !_err) _err = cbor_value_advance_fixed(&_it);
   return *this;
 }
 
@@ -99,7 +99,7 @@ CborDeserializer &CborDeserializer::operator>>(const int &t)
     _err = cbor_value_get_int(&_it, &x);
     assert(_err == CborNoError);
   }
-  _err = cbor_value_advance_fixed(&_it);
+  if ( !_err) _err = cbor_value_advance_fixed(&_it);
   return *this;
 }
 
