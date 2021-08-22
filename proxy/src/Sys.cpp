@@ -41,7 +41,7 @@ void clock_gettime(int x, struct timespec *t) {
 uint64_t Sys::millis() // time in msec since boot, only increasing
 {
   struct timespec deadline;
-  clock_gettime((int)CLOCK_BOOTTIME, &deadline);
+  clock_gettime((int)CLOCK_REALTIME, &deadline);
   Sys::_upTime = deadline.tv_sec * 1000 + deadline.tv_nsec / 1000000;
   return _upTime;
 }
@@ -49,7 +49,7 @@ uint64_t Sys::millis() // time in msec since boot, only increasing
 uint64_t Sys::micros() // time in msec since boot, only increasing
 {
   struct timespec deadline;
-  clock_gettime((int)CLOCK_BOOTTIME, &deadline);
+  clock_gettime((int)CLOCK_REALTIME, &deadline);
   uint64_t usec = deadline.tv_sec;
   usec *= 1000000;
   usec += deadline.tv_nsec / 1000;

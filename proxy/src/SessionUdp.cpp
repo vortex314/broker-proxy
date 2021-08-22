@@ -17,8 +17,8 @@ bool SessionUdp::init() {
 }
 
 bool SessionUdp::connect() {
-  thread().addReadInvoker(_udp.fd(), this);
-  thread().addErrorInvoker(_udp.fd(), _errorInvoker);
+  thread().addReadInvoker(_udp.fd(), [&](int){invoke();});
+  thread().addErrorInvoker(_udp.fd(), [&](int){invoke();});
   return true;
 }
 

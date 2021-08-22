@@ -18,7 +18,8 @@
                 "NOTHING",
                 "__linux__",
                 "ZMQ_BUILD_DRAFT_API",
-                "ZENOH_LINUX"
+                "ZENOH_LINUX",
+                "BROKER_REDIS"
             ],
             "compilerPath": "/usr/bin/gcc",
             "cStandard": "gnu17",

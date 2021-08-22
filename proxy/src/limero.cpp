@@ -41,13 +41,13 @@ void Thread::buildFdSet() {
   _maxFd += 1;
 }
 
-void Thread::addReadInvoker(int fd, Invoker *invoker) {
-  _readInvokers.emplace(fd, invoker);
+void Thread::addReadInvoker(int fd, std::function<void(int)> f) {
+  _readInvokers.emplace(fd, f);
   buildFdSet();
 }
 
-void Thread::addErrorInvoker(int fd, Invoker *invoker) {
-  _errorInvokers.emplace(fd, invoker);
+void Thread::addErrorInvoker(int fd, std::function<void(int)> f) {
+  _errorInvokers.emplace(fd, f);
   buildFdSet();
 }
 
@@ -82,13 +82,13 @@ int Thread::waitInvoker(uint32_t timeout) {
       int fd = myPair.first;
       if (FD_ISSET(fd, &rfds))
         if (_readInvokers.find(fd) != _readInvokers.end())
-          _readInvokers.find(fd)->second->invoke();
+          _readInvokers.find(fd)->second(fd);
     }
     for (const auto &myPair : _errorInvokers) {
       int fd = myPair.first;
       if (FD_ISSET(fd, &efds))
       if (_errorInvokers.find(fd) != _errorInvokers.end())
-        _errorInvokers.find(fd)->second->invoke();
+        _errorInvokers.find(fd)->second(fd);
     }
     if (FD_ISSET(_readPipe, &efds)) {
       WARN("pipe  error : %s (%d)", strerror(errno), errno);

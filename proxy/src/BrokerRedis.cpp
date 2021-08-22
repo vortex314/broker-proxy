@@ -2,14 +2,8 @@
 #include <BrokerRedis.h>
 
 #include <CborDump.h>
-/*
-1) "pmessage"
-2) "src/*"
-3) "src/esp32/aa"
-4) "123"
 
-*/
-void Sub::onMessage(redisAsyncContext *c, void *reply, void *me) {
+void Sub::onMessage(redisContext *c, void *reply, void *me) {
   Sub *sub = (Sub *)me;
   if (reply == NULL)
     return;
@@ -48,35 +42,18 @@ void Pub::onReply(redisAsyncContext *c, void *reply, void *me) {
   }
 }
 
-class EventInvoker : public Invoker {
-  struct event_base *_base;
-
-public:
-  EventInvoker(struct event_base *base) : _base(base){};
-  void invoke() {
-    while (true)
-      event_base_dispatch(_base);
-  }
-};
-#include <event2/thread.h>
-BrokerRedis::BrokerRedis(Thread &thr, Config &cfg) {
+BrokerRedis::BrokerRedis(Thread &thread, Config &cfg)
+    : _thread(thread), _reconnectTimer(thread, 3000, true, "reconnectTimer") {
   _hostname = cfg["broker"]["host"] | "localhost";
   _port = cfg["broker"]["port"] | 6379;
-  evthread_use_pthreads();
-
-  _publishEventBase = event_base_new();
-  _publishEventThread = new Thread("event Publish Thread ");
-  _publishEventThread->enqueue(new EventInvoker(_publishEventBase));
-  _publishEventThread->start();
-
-  _subscribeEventBase = event_base_new();
-  _subscribeEventThread = new Thread("event Subscribe Thread ");
-  _subscribeEventThread->enqueue(new EventInvoker(_subscribeEventBase));
-  _subscribeEventThread->start();
 
   _connected >> [](const bool &connected) {
     LOGI << "Connection state : " << (connected ? "connected" : "disconnected")
          << LEND;
+  };
+  _reconnectTimer >> [&](const TimerMsg &) {
+    if (!_connected())
+      connect("");
   };
 }
 
@@ -91,35 +68,41 @@ int BrokerRedis::connect(string clientId) {
   }
   redisOptions options = {0};
   REDIS_OPTIONS_SET_TCP(&options, _hostname.c_str(), _port);
+  options.connect_timeout = new timeval{3, 0}; // 3 sec
+  options.command_timeout = new timeval{3, 0}; // 3 sec
   REDIS_OPTIONS_SET_PRIVDATA(&options, this, free_privdata);
 
   LOGI << "Connecting to Redis " << _hostname << ":" << _port << LEND;
-  _subscribeContext = redisAsyncConnectWithOptions(&options);
-  if (_subscribeContext == NULL)
+  _subscribeContext = redisConnectWithOptions(&options);
+  if (_subscribeContext == NULL || _subscribeContext->err ) {
+    LOGW << " Connection " << _hostname << ":" << _port << "  failed." << _subscribeContext->errstr << LEND;
     return ENOTCONN;
-  _publishContext = redisAsyncConnectWithOptions(&options);
+  } 
+  _thread.addReadInvoker(_subscribeContext->fd, [&](int) {
+    redisReply *reply;
+    int rc = redisGetReply(_subscribeContext, (void **)&reply);
+    if (rc == 0) {
+      if (reply->type == REDIS_REPLY_ARRAY &&
+          strcmp(reply->element[0]->str, "pmessage") == 0) {
+        Sub *sub = findSub(reply->element[1]->str);
+        if (sub)
+          Sub::onMessage(_subscribeContext, reply, sub);
+      } else {
+        INFO(" reply not handled ");
+      }
+
+      freeReplyObject(reply);
+    } else {
+      INFO(" reply not found ");
+      disconnect();
+    }
+  });
+  _publishContext = redisConnectWithOptions(&options);
   if (_publishContext == NULL)
     return ENOTCONN;
-  _publishContext->data = this;
-  _subscribeContext->data = this;
-  redisLibeventAttach(_subscribeContext, _subscribeEventBase);
-  redisLibeventAttach(_publishContext, _publishEventBase);
-
-  redisAsyncSetConnectCallback(_publishContext,
-                               [](const redisAsyncContext *ac, int status) {
-                                 BrokerRedis *me = (BrokerRedis *)ac->data;
-                               });
-  redisAsyncSetConnectCallback(
-      _subscribeContext, [](const redisAsyncContext *ac, int status) {
-        BrokerRedis *me = (BrokerRedis *)ac->data;
-        me->_connected = status == REDIS_OK ? true : false;
-      });
-  redisAsyncSetDisconnectCallback(_publishContext,
-                                  [](const redisAsyncContext *ac, int status) {
-                                    BrokerRedis *me = (BrokerRedis *)ac->data;
-                                    me->disconnect();
-                                  });
-
+  _connected = true;
+  _publishContext->privdata = this;
+  _subscribeContext->privdata = this;
   return 0;
 }
 
@@ -127,8 +110,9 @@ int BrokerRedis::disconnect() {
   LOGI << (" disconnecting.") << LEND;
   if (!_connected())
     return 0;
-  redisAsyncDisconnect(_publishContext);
-  redisAsyncDisconnect(_subscribeContext);
+  _thread.deleteInvoker(_subscribeContext->fd);
+  redisFree(_publishContext);
+  redisFree(_subscribeContext);
 
   for (auto tuple : _subscribers) {
   }
@@ -145,10 +129,13 @@ int BrokerRedis::subscriber(
     std::function<void(int, string &, const Bytes &)> callback) {
   if (_subscribers.find(id) == _subscribers.end()) {
     Sub *sub = new Sub({id, pattern, callback});
-    int rc = redisAsyncCommand(_subscribeContext, Sub::onMessage, sub,
-                               "PSUBSCRIBE %s", pattern.c_str());
-    LOGI << " PSUBSCRIBE : " << pattern << " created." << LEND;
-    _subscribers.emplace(id, sub);
+    redisReply *r = (redisReply *)redisCommand(
+        _subscribeContext, "PSUBSCRIBE %s", pattern.c_str());
+    if (r) {
+      LOGI << " PSUBSCRIBE : " << pattern << " created." << LEND;
+      _subscribers.emplace(id, sub);
+      freeReplyObject(r);
+    }
   }
   return 0;
 }
@@ -157,10 +144,13 @@ int BrokerRedis::unSubscribe(int id) {
   auto it = _subscribers.find(id);
   if (it == _subscribers.end()) {
   } else {
-    int rc = redisAsyncCommand(_subscribeContext, Sub::onMessage, it->second,
-                               "PUNSUBSCRIBE %s", it->second->key.c_str());
-    LOGI << " PUNSUBSCRIBE : " << it->second->key << " created." << LEND;
-    _subscribers.erase(id);
+    redisReply *r = (redisReply *)redisCommand(
+        _subscribeContext, "PUNSUBSCRIBE %s", it->second->pattern);
+    if (r) {
+      LOGI << " PUNSUBSCRIBE : " << it->second->pattern << " created." << LEND;
+      _subscribers.erase(id);
+      freeReplyObject(r);
+    }
   }
   return 0;
 }
@@ -175,12 +165,14 @@ int BrokerRedis::publisher(int id, string key) {
 }
 
 int BrokerRedis::publish(int id, Bytes &bs) {
+  if (!_connected())
+    return ENOTCONN;
   auto it = _publishers.find(id);
   if (it != _publishers.end()) {
-    int rc = redisAsyncCommand(_publishContext, Pub::onReply, it->second,
-                               "PUBLISH %s %b", it->second->key.c_str(),
-                               bs.data(), bs.size());
-    if (rc) {
+    redisReply *r = (redisReply *)redisCommand(_publishContext, "PUBLISH %s %b",
+                                               it->second->key.c_str(),
+                                               bs.data(), bs.size());
+    if (r == 0) {
       LOGW << "PUBLISH failed " << it->second->key.c_str() << LEND;
     } else {
       LOGD << " PUBLISH : " << it->second->key << ":" << cborDump(bs) << LEND;
@@ -193,3 +185,27 @@ int BrokerRedis::publish(int id, Bytes &bs) {
 }
 
 Source<bool> &BrokerRedis::connected() { return _connected; }
+
+Sub *BrokerRedis::findSub(string pattern) {
+  for (auto it : _subscribers) {
+    if (it.second->pattern == pattern)
+      return it.second;
+  }
+  return 0;
+}
+
+int BrokerRedis::command(const char *format, ...) {
+  if (!_connected())
+    return ENOTCONN;
+  va_list ap;
+  va_start(ap, format);
+  void *reply = redisvCommand(_publishContext, format, ap);
+  va_end(ap);
+  if (reply) {
+    LOGI << " command : " << format << LEND;
+    freeReplyObject(reply);
+    return 0;
+  }
+  LOGW << "command : " << format << " failed " << LEND;
+  return EINVAL;
+}

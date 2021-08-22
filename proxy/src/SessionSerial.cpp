@@ -1,6 +1,6 @@
+#include <CborDump.h>
 #include <SessionSerial.h>
 #include <ppp_frame.h>
-#include <CborDump.h>
 
 SessionSerial::SessionSerial(Thread &thread, Config config)
     : SessionAbstract(thread, config), _incomingMessage(10, "_incomingMessage"),
@@ -29,8 +29,8 @@ bool SessionSerial::init() {
 
 bool SessionSerial::connect() {
   _serialPort.connect();
-  thread().addReadInvoker(_serialPort.fd(), this);
-  thread().addErrorInvoker(_serialPort.fd(), _errorInvoker);
+  thread().addReadInvoker(_serialPort.fd(), [&](int) { invoke(); });
+  thread().addErrorInvoker(_serialPort.fd(), [&](int) { onError(); });
   return true;
 }
 

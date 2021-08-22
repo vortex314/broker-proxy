@@ -16,9 +16,9 @@ struct PubMsg {
 
 struct Sub {
   int id;
-  string key;
+  string pattern;
   std::function<void(int, string &, const Bytes &)> callback;
-  static void onMessage(redisAsyncContext *c, void *reply, void *me);
+  static void onMessage(redisContext *c, void *reply, void *me);
 };
 
 struct Pub {
@@ -28,18 +28,21 @@ struct Pub {
 };
 
 class BrokerRedis : public BrokerAbstract {
+  Thread &_thread;
   unordered_map<int, Sub *> _subscribers;
   unordered_map<int, Pub *> _publishers;
   int scout();
   string _hostname;
   uint16_t _port;
-  redisAsyncContext *_subscribeContext;
-  redisAsyncContext *_publishContext;
+  redisContext *_subscribeContext;
+  redisContext *_publishContext;
   ValueFlow<bool> _connected;
   Thread *_publishEventThread;
   Thread *_subscribeEventThread;
   struct event_base *_publishEventBase;
   struct event_base *_subscribeEventBase;
+  Sub *findSub(string pattern);
+  TimerSource _reconnectTimer;
 
 public:
   Source<bool> &connected();
@@ -54,6 +57,7 @@ public:
   int publish(int, Bytes &);
   int onSubscribe(SubscribeCallback);
   int unSubscribe(int);
+  int command(const char *format, ...);
   vector<PubMsg> query(string);
 };
 

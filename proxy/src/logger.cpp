@@ -19,7 +19,11 @@ String charDump(Bytes bs) {
   for (uint8_t b : bs) {
     if (isprint(b))
       out += (char)b;
-    else
+    else if (b == '\n') {
+      out += "\\n";
+    } else if (b == '\r') {
+      out += "\\r";
+    } else
       out += '.';
   }
   return out;

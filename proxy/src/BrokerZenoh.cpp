@@ -5,9 +5,9 @@
 
 void BrokerZenoh::subscribeHandler(const zn_sample_t *sample, const void *arg) {
   Sub *pSub = (Sub *)arg;
-  string key(sample->key.val, sample->key.len);
+  string pattern(sample->key.val, sample->key.len);
   Bytes data(sample->value.val, sample->value.val + sample->value.len);
-  pSub->callback(pSub->id, key, data);
+  pSub->callback(pSub->id, pattern, data);
 }
 
 BrokerZenoh::BrokerZenoh(Thread &thr, Config &cfg) { _zenoh_session = 0; }
@@ -102,15 +102,15 @@ int BrokerZenoh::unSubscribe(int id) {
   return 0;
 }
 
-int BrokerZenoh::publisher(int id, string key) {
+int BrokerZenoh::publisher(int id, string pattern) {
   if (_publishers.find(id) == _publishers.end()) {
-    INFO(" Adding Zenoh publisher %d : '%s' in %d publishers", id, key.c_str(),
+    INFO(" Adding Zenoh publisher %d : '%s' in %d publishers", id, pattern.c_str(),
          _publishers.size());
-    zn_reskey_t reskey = resource(key);
+    zn_reskey_t reskey = resource(pattern);
     zn_publisher_t *pub = zn_declare_publisher(_zenoh_session, reskey);
     if (pub == 0)
-      WARN(" unable to declare publisher '%s'", key.c_str());
-    Pub *pPub = new Pub{id, key, reskey, pub};
+      WARN(" unable to declare publisher '%s'", pattern.c_str());
+    Pub *pPub = new Pub{id, pattern, reskey, pub};
     _publishers.emplace(id, pPub);
   }
   return 0;
@@ -119,7 +119,7 @@ int BrokerZenoh::publisher(int id, string key) {
 int BrokerZenoh::publish(int id, Bytes &bs) {
   auto it = _publishers.find(id);
   if (it != _publishers.end()) {
-    //    INFO("publish %d : %s => %s ", id, it->second->key.c_str(),
+    //    INFO("publish %d : %s => %s ", id, it->second->pattern.c_str(),
     //    cborDump(bs).c_str());
     int rc =
         zn_write(_zenoh_session, it->second->zn_reskey, bs.data(), bs.size());
@@ -147,11 +147,11 @@ vector<PubMsg> BrokerZenoh::query(string uri) {
       zn_query_consolidation_default());
   for (unsigned int i = 0; i < replies.len; ++i) {
     result.push_back(
-        {string(replies.val[i].data.key.val, replies.val[i].data.key.len),
+        {string(replies.val[i].data.pattern.val, replies.val[i].data.pattern.len),
          Bytes(replies.val[i].data.value.val,
                replies.val[i].data.value.val + replies.val[i].data.value.len)});
     printf(">> [Reply handler] received (%.*s, %.*s)\n",
-           (int)replies.val[i].data.key.len, replies.val[i].data.key.val,
+           (int)replies.val[i].data.pattern.len, replies.val[i].data.pattern.val,
            (int)replies.val[i].data.value.len, replies.val[i].data.value.val);
   }
   zn_reply_data_array_free(replies);

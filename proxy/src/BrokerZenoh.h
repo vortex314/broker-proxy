@@ -19,7 +19,7 @@ struct PubMsg {
 
 struct Sub {
   int id;
-  string key;
+  string pattern;
   std::function<void(int,string&, const Bytes &)> callback;
   zn_subscriber_t *zn_subscriber;
 };

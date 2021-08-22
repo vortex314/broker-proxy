@@ -5,6 +5,7 @@
 #include <assert.h>
 #include <broker_protocol.h>
 #include <hiredis.h>
+#include <limero.h>
 #include <log.h>
 
 // using namespace sw::redis;
@@ -109,14 +110,15 @@ TEST(RedisConnect, BasicAssertions) {
 #include <async.h>
 
 void onMessage(redisAsyncContext *c, void *reply, void *privdata) {
-    redisReply *r =(redisReply *) reply;
-    if (reply == NULL) return;
+  redisReply *r = (redisReply *)reply;
+  if (reply == NULL)
+    return;
 
-    if (r->type == REDIS_REPLY_ARRAY) {
-        for (int j = 0; j < r->elements; j++) {
-            printf("%u) %s\n", j, r->element[j]->str);
-        }
+  if (r->type == REDIS_REPLY_ARRAY) {
+    for (int j = 0; j < r->elements; j++) {
+      printf("%u) %s\n", j, r->element[j]->str);
     }
+  }
 }
 
 void getCallback(redisAsyncContext *c, void *r, void *privdata) {
@@ -151,17 +153,122 @@ TEST(RedisConnectAsync, BasicAssertions) {
 
   redisAsyncContext *ac = redisAsyncConnect("127.0.0.1", 6379);
   EXPECT_EQ(ac->err, 0);
-  int rc ;
-  EXPECT_EQ(redisLibeventAttach(ac, base),0);
-  EXPECT_EQ(redisAsyncSetConnectCallback(ac, connectCallback),0);
-  EXPECT_EQ(redisAsyncSetDisconnectCallback(ac, disconnectCallback),0);
-  EXPECT_EQ(redisAsyncCommand(ac, onMessage, NULL, "SUBSCRIBE testtopic"),0);
-  EXPECT_EQ(redisAsyncCommand(ac, onMessage, NULL, "SUBSCRIBE anothertopic"),0);
+  int rc;
+  EXPECT_EQ(redisLibeventAttach(ac, base), 0);
+  EXPECT_EQ(redisAsyncSetConnectCallback(ac, connectCallback), 0);
+  EXPECT_EQ(redisAsyncSetDisconnectCallback(ac, disconnectCallback), 0);
+  EXPECT_EQ(redisAsyncCommand(ac, onMessage, NULL, "SUBSCRIBE testtopic"), 0);
+  EXPECT_EQ(redisAsyncCommand(ac, onMessage, NULL, "SUBSCRIBE anothertopic"),
+            0);
   EXPECT_EQ(redisAsyncCommand(ac, NULL, NULL, "PUBLISH testtopîc %b", "key",
-                    strlen("key")),0);
-  EXPECT_EQ(redisAsyncCommand(ac, getCallback, (char *)"end-1", "GET key"),0);
+                              strlen("key")),
+            0);
+  EXPECT_EQ(redisAsyncCommand(ac, getCallback, (char *)"end-1", "GET key"), 0);
   event_base_dispatch(base);
   redisAsyncDisconnect(ac);
+}
+
+class Redis {
+public:
+  Redis(redisContext *c) : _c(c){};
+  redisContext *_c;
+  void readInvoke() {
+    redisReply *reply;
+    if (redisGetReply(_c, (void **)&reply) == REDIS_OK) {
+      freeReplyObject(reply);
+    };
+  }
+  void errorInvoke();
+  int connect() {
+    _c = redisConnect("127.0.0.1", 6379);
+    assert(_c != 0);
+  }
+};
+
+Bytes readFromFd(int _fd) {
+  Bytes out;
+  char buffer[1024];
+  int rc;
+  while (true) {
+    rc = read(_fd, buffer, sizeof(buffer));
+    if (rc > 0) {
+      DEBUG("read() = %d bytes", rc);
+      for (int i = 0; i < rc; i++)
+        out.push_back(buffer[i]);
+    } else if (rc < 0) {
+      if (errno == EAGAIN || errno == EWOULDBLOCK)
+        return out;
+    } else { // no data
+      return out;
+    }
+  }
+}
+
+void showReply(redisReply *reply) {
+  if (reply->type == REDIS_REPLY_ARRAY) {
+    for (int j = 0; j < reply->elements; j++) {
+      LOGI << j << ":" << reply->element[j]->str << LEND;
+    }
+  } else if (reply->type == REDIS_REPLY_INTEGER) {
+    LOGI << " REDIS_REPLY_INTEGER : " << reply->integer << LEND;
+  } else if (reply->type == REDIS_REPLY_STATUS) {
+    LOGI << " REDIS_REPLY_STATUS : " << reply->integer << " str " << reply->str
+         << LEND;
+  } else if (reply->type == REDIS_REPLY_STRING) {
+    LOGI << " REDIS_REPLY_STRING   : " << reply->integer << " str "
+         << reply->str << LEND;
+  } else {
+    LOGI << " Type : " << reply->type << LEND;
+  }
+}
+
+TEST(HiRedis, BasicAssertions) {
+  redisContext *c = redisConnectNonBlock("127.0.0.1", 6379);
+  redisReader *reader = redisReaderCreate();
+  Thread listener("listener");
+  TimerSource ticker(listener, 5000, true, "ticker");
+  ticker >> [&](const TimerMsg &) { INFO("tick."); };
+  INFO(" socket fd %d add read invoker ", c->fd);
+  listener.addReadInvoker(c->fd, [&](int fd) {
+    INFO(" ENTER read .. %d ", fd);
+    redisReply *reply;
+    Bytes buffer = readFromFd(c->fd);
+    if (buffer.size()) {
+      int rc =
+          redisReaderFeed(reader, (const char *)buffer.data(), buffer.size());
+      INFO("%d %s", rc, charDump(buffer).c_str());
+      if (redisReaderGetReply(reader, (void **)&reply) == 0) {
+        if (reply != 0) {
+          showReply(reply);
+          freeReplyObject(reply);
+        } else {
+          INFO("empty ");
+        }
+      }
+    }
+
+    /*    while (redisGetReply(c, (void **)&reply) == REDIS_OK && reply != 0) {
+          freeReplyObject(reply);
+        }*/
+    INFO(" EXIT read ");
+  });
+  listener.start();
+  int wdone = 0;
+  redisCommand(c, "GET foo");
+  redisCommand(c, "SET foo ABCD");
+  redisCommand(c, "PSUBSCRIBE XX");
+  redisCommand(c, "PSUBSCRIBE YY");
+  redisCommand(c, "PING");
+
+  redisBufferWrite(c, &wdone);
+
+  /*  redisReply *reply;
+  if (redisGetReply(c, (void **)&reply) == REDIS_OK) {
+        INFO(" got reply 2");
+        freeReplyObject(reply);
+      };*/
+  sleep(10);
+  redisFree(c);
 }
 
 int main(int argc, char **argv) {

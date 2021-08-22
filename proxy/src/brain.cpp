@@ -8,6 +8,7 @@
 #include <utility>
 
 using namespace std;
+std::vector<std::string> split(const std::string &s, char seperator);
 
 LogS logger;
 #ifdef BROKER_ZENOH
@@ -55,7 +56,7 @@ int main(int argc, char **argv) {
         broker.subscriber(1, "src/*", [&](int id, string key, const Bytes &bs) {
 #endif
           // broker.scout();
-//          LOGI << key << "=" << cborDump(bs) << LEND;
+          //          LOGI << key << "=" << cborDump(bs) << LEND;
           if (key == "src/brain/system/uptime") {
             uint64_t ts;
             uint64_t delay;
@@ -69,6 +70,35 @@ int main(int argc, char **argv) {
         });
     rc = broker.publisher(2, "src/brain/system/uptime");
     rc = broker.publisher(3, "src/brain/system/latency");
+#ifdef BROKER_REDIS
+    broker.subscriber(2, "src/*", [&](int id, string key, const Bytes &bs) {
+      //    broker.command(stringFormat("SET %s \%b", key.c_str()).c_str(),
+      //    bs.data(), bs.size());
+      vector<string> parts = split(key, '/');
+      int64_t i64;
+      if (cborDeserializer.fromBytes(bs).begin().get(i64).success()) {
+        broker.command(stringFormat("ts.add %s %lu %ld ", key.c_str(),
+                                    Sys::millis() / 1000, i64)
+                           .c_str());
+        broker.command(stringFormat("XADD %s * %s %ld", parts[1].c_str(),
+                                    (parts[2] + "/" + parts[3]).c_str(), i64)
+                           .c_str());
+      }
+      double d;
+      if (cborDeserializer.fromBytes(bs).begin().get(d).success()) {
+        broker.command(stringFormat("ts.add %s %lu %f ", key.c_str(),
+                                    Sys::millis() / 1000, d)
+                           .c_str());
+        broker.command(stringFormat("XADD %s * %s %f", parts[1].c_str(),
+                                    (parts[2] + "/" + parts[3]).c_str(), d)
+                           .c_str());
+      }
+      string s;
+      if (cborDeserializer.fromBytes(bs).begin().get(s).success())
+        broker.command(
+            stringFormat("SET  %s \"%s\" ", key.c_str(), s.c_str()).c_str());
+    });
+#endif
 
     pubTimer >> [&](const TimerMsg &) {
       Bytes bs = cborSerializer.begin().add(Sys::micros()).end().toBytes();
@@ -76,4 +106,23 @@ int main(int argc, char **argv) {
     };
     workerThread.run();
     broker.disconnect();
+}
+
+
+std::vector<std::string> split(const std::string &s, char seperator) {
+    std::vector<std::string> output;
+
+    std::string::size_type prev_pos = 0, pos = 0;
+
+    while ((pos = s.find(seperator, pos)) != std::string::npos) {
+      std::string substring(s.substr(prev_pos, pos - prev_pos));
+
+      output.push_back(substring);
+
+      prev_pos = ++pos;
+    }
+
+    output.push_back(s.substr(prev_pos, pos - prev_pos)); // Last word
+
+    return output;
 }

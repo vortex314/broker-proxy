@@ -344,8 +344,8 @@ class Thread : public Named {
   fd_set _wfds;
   fd_set _efds;
   int _maxFd;
-  std::unordered_map<int, Invoker *> _readInvokers;
-  std::unordered_map<int, Invoker *> _errorInvokers;
+  std::unordered_map<int, std::function<void(int)>> _readInvokers;
+  std::unordered_map<int, std::function<void(int)>> _errorInvokers;
   void buildFdSet();
 #elif defined(FREERTOS)
   QueueHandle_t _workQueue = 0;
@@ -371,8 +371,8 @@ public:
   void loop();
   void addTimer(TimerSource *);
 #ifdef LINUX
-  void addReadInvoker(int, Invoker *);
-  void addErrorInvoker(int, Invoker *);
+  void addReadInvoker(int, std::function<void(int)>);
+  void addErrorInvoker(int, std::function<void(int)>);
   void deleteInvoker(int);
   int waitInvoker(uint32_t timeout);
 #endif
@@ -538,8 +538,7 @@ public:
   };
 };
 // -------------------------------------------------------- Cache
-template <class T>
-class Cache : public Flow<T, T>, public Sink<TimerMsg> {
+template <class T> class Cache : public Flow<T, T>, public Sink<TimerMsg> {
   Thread &_thread;
   uint32_t _minimum, _maximum;
   bool _unsendValue = false;
