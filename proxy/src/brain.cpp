@@ -77,7 +77,8 @@ int main(int argc, char **argv) {
       vector<string> parts = split(key, '/');
       int64_t i64;
       if (cborDeserializer.fromBytes(bs).begin().get(i64).success()) {
-        broker.command(stringFormat("ts.add %s %lu %ld ", key.c_str(),
+        broker.command(stringFormat("SET %s %ld ", key.c_str(), i64).c_str());
+        broker.command(stringFormat("ts.add ts-%s %lu %ld ", key.c_str(),
                                     Sys::millis() / 1000, i64)
                            .c_str());
         broker.command(stringFormat("XADD %s * %s %ld", parts[1].c_str(),
@@ -86,7 +87,8 @@ int main(int argc, char **argv) {
       }
       double d;
       if (cborDeserializer.fromBytes(bs).begin().get(d).success()) {
-        broker.command(stringFormat("ts.add %s %lu %f ", key.c_str(),
+        broker.command(stringFormat("SET %s %f ", key.c_str(), d).c_str());
+        broker.command(stringFormat("ts.add ts-%s %lu %f ", key.c_str(),
                                     Sys::millis() / 1000, d)
                            .c_str());
         broker.command(stringFormat("XADD %s * %s %f", parts[1].c_str(),
