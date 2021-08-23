@@ -167,9 +167,7 @@ target_link_libraries(redis-proxy
 -L/usr/local/lib/ -lzenohc
 -lpthread  
 -lhiredis
--levent
 -lrt  
--levent_pthreads
 -latomic)
 
 target_link_libraries(zenoh-proxy 
@@ -185,7 +183,6 @@ target_link_libraries(redis-test
 gtest_main
 -lhiredis
 -lpthread  
--levent
 -lrt  
 -latomic)
 
@@ -207,8 +204,6 @@ target_link_libraries(redis-brain
 -L/home/lieven/workspace/tinycbor/lib -l:libtinycbor.a
 -lpthread  
 -lhiredis
--levent
--levent_pthreads
 -lrt  
 -latomic)
 

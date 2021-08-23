@@ -2,7 +2,6 @@
 #define _ZENOH_SESSION_H_
 #include "BrokerAbstract.h"
 #include "limero.h"
-#include <adapters/libevent.h>
 #include <async.h>
 #include <hiredis.h>
 #include <log.h>

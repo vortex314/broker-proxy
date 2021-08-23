@@ -106,67 +106,7 @@ TEST(RedisConnect, BasicAssertions) {
   redisFree(c);
 }
 //=============================================================================
-#include <adapters/libevent.h>
-#include <async.h>
 
-void onMessage(redisAsyncContext *c, void *reply, void *privdata) {
-  redisReply *r = (redisReply *)reply;
-  if (reply == NULL)
-    return;
-
-  if (r->type == REDIS_REPLY_ARRAY) {
-    for (int j = 0; j < r->elements; j++) {
-      printf("%u) %s\n", j, r->element[j]->str);
-    }
-  }
-}
-
-void getCallback(redisAsyncContext *c, void *r, void *privdata) {
-  redisReply *reply = (redisReply *)r;
-  if (reply == NULL)
-    return;
-  printf("argv[%s]: %s\n", (char *)privdata, reply->str);
-
-  /* Disconnect after receiving the reply to GET */
-  redisAsyncDisconnect(c);
-}
-
-void connectCallback(const redisAsyncContext *c, int status) {
-  if (status != REDIS_OK) {
-    printf("Error: %s\n", c->errstr);
-    return;
-  }
-  printf("Connected...\n");
-}
-
-void disconnectCallback(const redisAsyncContext *c, int status) {
-  if (status != REDIS_OK) {
-    printf("Error: %s\n", c->errstr);
-    return;
-  }
-  printf("Disconnected...\n");
-}
-
-TEST(RedisConnectAsync, BasicAssertions) {
-  signal(SIGPIPE, SIG_IGN);
-  struct event_base *base = event_base_new();
-
-  redisAsyncContext *ac = redisAsyncConnect("127.0.0.1", 6379);
-  EXPECT_EQ(ac->err, 0);
-  int rc;
-  EXPECT_EQ(redisLibeventAttach(ac, base), 0);
-  EXPECT_EQ(redisAsyncSetConnectCallback(ac, connectCallback), 0);
-  EXPECT_EQ(redisAsyncSetDisconnectCallback(ac, disconnectCallback), 0);
-  EXPECT_EQ(redisAsyncCommand(ac, onMessage, NULL, "SUBSCRIBE testtopic"), 0);
-  EXPECT_EQ(redisAsyncCommand(ac, onMessage, NULL, "SUBSCRIBE anothertopic"),
-            0);
-  EXPECT_EQ(redisAsyncCommand(ac, NULL, NULL, "PUBLISH testtopîc %b", "key",
-                              strlen("key")),
-            0);
-  EXPECT_EQ(redisAsyncCommand(ac, getCallback, (char *)"end-1", "GET key"), 0);
-  event_base_dispatch(base);
-  redisAsyncDisconnect(ac);
-}
 
 class Redis {
 public:
