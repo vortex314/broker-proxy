@@ -78,9 +78,12 @@ int main(int argc, char **argv) {
       int64_t i64;
       if (cborDeserializer.fromBytes(bs).begin().get(i64).success()) {
         broker.command(stringFormat("SET %s %ld ", key.c_str(), i64).c_str());
-        broker.command(stringFormat("ts.add ts-%s %lu %ld ", key.c_str(),
-                                    Sys::millis() / 1000, i64)
-                           .c_str());
+        broker.command(
+            stringFormat(
+                "ts.add ts-%s %lu %ld LABELS node %s object %s prop %s ",key.c_str(),
+                Sys::millis() / 1000, i64, parts[1].c_str(), parts[2].c_str(),
+                parts[3].c_str())
+                .c_str());
         broker.command(stringFormat("XADD %s * %s %ld", parts[1].c_str(),
                                     (parts[2] + "/" + parts[3]).c_str(), i64)
                            .c_str());
@@ -88,9 +91,12 @@ int main(int argc, char **argv) {
       double d;
       if (cborDeserializer.fromBytes(bs).begin().get(d).success()) {
         broker.command(stringFormat("SET %s %f ", key.c_str(), d).c_str());
-        broker.command(stringFormat("ts.add ts-%s %lu %f ", key.c_str(),
-                                    Sys::millis() / 1000, d)
-                           .c_str());
+        broker.command(
+            stringFormat(
+                "ts.add ts-uc %lu %f LABELS node %s object %s prop %s ",
+                Sys::millis() / 1000, d, parts[1].c_str(), parts[2].c_str(),
+                parts[3].c_str())
+                .c_str());
         broker.command(stringFormat("XADD %s * %s %f", parts[1].c_str(),
                                     (parts[2] + "/" + parts[3]).c_str(), d)
                            .c_str());
