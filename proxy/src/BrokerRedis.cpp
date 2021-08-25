@@ -3,8 +3,8 @@
 
 #include <CborDump.h>
 
-void Sub::onMessage(redisContext *c, void *reply, void *me) {
-  Sub *sub = (Sub *)me;
+void SubscriberStruct::onMessage(redisContext *c, void *reply, void *me) {
+  SubscriberStruct *sub = (SubscriberStruct *)me;
   if (reply == NULL)
     return;
   redisReply *r = (redisReply *)reply;
@@ -27,8 +27,8 @@ void Sub::onMessage(redisContext *c, void *reply, void *me) {
   }
 }
 
-void Pub::onReply(redisAsyncContext *c, void *reply, void *me) {
-  Pub *sub = (Pub *)me;
+void PublisherStruct::onReply(redisAsyncContext *c, void *reply, void *me) {
+  PublisherStruct *sub = (PublisherStruct *)me;
   redisReply *r = (redisReply *)reply;
   if (r->type == REDIS_REPLY_ARRAY) {
     for (int j = 0; j < r->elements; j++) {
@@ -84,9 +84,9 @@ int BrokerRedis::connect(string clientId) {
     if (rc == 0) {
       if (reply->type == REDIS_REPLY_ARRAY &&
           strcmp(reply->element[0]->str, "pmessage") == 0) {
-        Sub *sub = findSub(reply->element[1]->str);
+        SubscriberStruct *sub = findSub(reply->element[1]->str);
         if (sub)
-          Sub::onMessage(_subscribeContext, reply, sub);
+          SubscriberStruct::onMessage(_subscribeContext, reply, sub);
       } else {
         INFO(" reply not handled ");
       }
@@ -128,7 +128,7 @@ int BrokerRedis::subscriber(
     int id, string pattern,
     std::function<void(int, string &, const Bytes &)> callback) {
   if (_subscribers.find(id) == _subscribers.end()) {
-    Sub *sub = new Sub({id, pattern, callback});
+    SubscriberStruct *sub = new SubscriberStruct({id, pattern, callback});
     redisReply *r = (redisReply *)redisCommand(
         _subscribeContext, "PSUBSCRIBE %s", pattern.c_str());
     if (r) {
@@ -157,7 +157,7 @@ int BrokerRedis::unSubscribe(int id) {
 
 int BrokerRedis::publisher(int id, string key) {
   if (_publishers.find(id) == _publishers.end()) {
-    Pub *pPub = new Pub{id, key};
+    PublisherStruct *pPub = new PublisherStruct{id, key};
     _publishers.emplace(id, pPub);
     LOGI << " Publisher : " << key << " created." << LEND;
   }
@@ -186,7 +186,7 @@ int BrokerRedis::publish(int id, Bytes &bs) {
 
 Source<bool> &BrokerRedis::connected() { return _connected; }
 
-Sub *BrokerRedis::findSub(string pattern) {
+SubscriberStruct *BrokerRedis::findSub(string pattern) {
   for (auto it : _subscribers) {
     if (it.second->pattern == pattern)
       return it.second;

@@ -6,52 +6,56 @@
 #include <limero.h>
 #include <log.h>
 #include <ppp_frame.h>
-#include <util.h>
 
-namespace broker {
+class BrokerReactive;
 //------------------------------------------------------------------- Resource
 class Resource {
   int _id;
   TopicName _key;
 
-public:
+ public:
   Resource(int i, TopicName &k) : _id(i), _key(k){};
   int id() { return _id; }
   const TopicName &key() { return _key; }
 };
 //----------------------------------------------------------------------- Sub
-template <typename T> class Sub : public Source<T>, public Resource {
+template <typename T>
+class Sub : public Source<T>, public Resource {
   CborDeserializer _cborDeserializer;
-  BrokerAbstract &_brokerAbstract;
+  BrokerReactive &_brokerReactive;
   T _t;
 
-public:
-  Sub(BrokerAbstract &brokerAbstract, int id, TopicName &key)
-      : Source<T>(), Resource(id, key){};
+ public:
+  Sub(BrokerReactive &brokerReactive, int id, TopicName &key)
+      : Source<T>(),
+        Resource(id, key),
+        _cborDeserializer(100),
+        _brokerReactive(brokerReactive) {
+  };
   void newBytes(const Bytes &bs) {
-    _cborDeserializer.fromBytes(bs) >> _t;
-    if (_cborDeserializer.success())
-      emit(_t);
+    _cborDeserializer.fromBytes(bs).begin().get(_t);
+    if (_cborDeserializer.success()) emit(_t);
   }
 };
 //----------------------------------------------------------------------- Pub
-template <typename T> class Pub : public Sink<T>, public Resource {
-  CborSerializer _cborSerializer(100);
-  BrokerAbstract &_brokerAbstract;
+template <typename T>
+class Pub : public Sink<T>, public Resource {
+  CborSerializer _cborSerializer;
+  BrokerReactive &_brokerReactive;
   Bytes _bs;
 
-public:
-  Pub(BrokerAbstract &brokerAbstract, int rid, TopicName &key)
-      : Sink<T>(3), Resource(rid, key){};
+ public:
+  Pub(BrokerReactive &brokerReactive, int rid, TopicName &key)
+      : Sink<T>(3), Resource(rid, key),_cborSerializer(100),_brokerReactive(brokerReactive){};
   void on(const T &t) {
     _bs = (_cborSerializer.begin() << t).end().toBytes();
-    _brokerAbstract.publish(id(), _bs);
-  }),
+    _brokerReactive.publish(id(), _bs);
+  }
 };
 //-----------------------------------------------------------------------
 
 class BrokerReactive : public Actor {
-public:
+ public:
   BrokerAbstract &_brokerAbstract;
   ValueFlow<Bytes> incomingPublish;
   ValueFlow<Bytes> incomingConnect;
@@ -64,34 +68,32 @@ public:
   TopicName brokerSrcPrefix = "src/node/";
   TopicName brokerDstPrefix = "dst/node/";
 
-public:
-  Broker(BrokerAbstract &brokerAbstract, Thread thr)
-      :, _brokerAbstract(brokerAbstract), Actor(thr){};
-  template <typename T> Sub<T> &subscriber(TopicName);
-  template <typename T> Pub<T> &publisher(TopicName);
+ public:
+  BrokerReactive(BrokerAbstract &brokerAbstract, Thread thr)
+      : _brokerAbstract(brokerAbstract), Actor(thr){};
+  template <typename T>
+  Sub<T> &subscriber(TopicName name) {
+    TopicName topic = name;
+    if (!(topic.rfind("src/", 0) == 0 || topic.rfind("dst/", 0) == 0)) {
+      topic = brokerDstPrefix + name;
+    }
+    Sub<T> *s = new Sub<T>(*this, _resourceId++, topic);
+    _subscribers.push_back(s);
+    LOGI << " created subscriber :" << name.c_str() << LEND;
+    return *s;
+  }
+  template <typename T>
+  Pub<T> &publisher(TopicName name) {
+    TopicName topic = name;
+    if (!(topic.rfind("src/", 0) == 0 || topic.rfind("dst/", 0) == 0)) {
+      topic = brokerSrcPrefix + name;
+    }
+    Pub<T> *p = new Pub<T>(*this, _resourceId++, topic);
+    _publishers.push_back(p);
+    LOGI << " created publisher : " << name.c_str() << LEND;
+    return *p;
+  }
 };
 //-----------------------------------------------------------------------
 
-template <typename T> Pub<T> &Broker::publisher(TopicName name) {
-  TopicName topic = name;
-  if (!(topic.startsWith("src/") || topic.startsWith("dst/"))) {
-    topic = brokerSrcPrefix + name;
-  }
-  Pub<T> *p = new Pub<T>(*this, _resourceId++, topic);
-  _publishers.push_back(p);
-  LOGI << " created publisher : " << name.c_str() << LEND;
-  return *p;
-}
 //-----------------------------------------------------------------------
-
-template <typename T> Sub<T> &Broker::subscriber(TopicName name) {
-  TopicName topic = name;
-  if (!(topic.startsWith("src/") || topic.startsWith("dst/"))) {
-    topic = brokerDstPrefix + name;
-  }
-  Sub<T> *s = new Sub<T>(*this, _resourceId++, topic);
-  _subscribers.push_back(s);
-  LOGI << " created subscriber :" << name.c_str() << LEND;
-  return *s;
-}
-}; // namespace broker

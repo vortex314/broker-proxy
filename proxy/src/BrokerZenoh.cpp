@@ -4,7 +4,7 @@
 #include <CborDump.h>
 
 void BrokerZenoh::subscribeHandler(const zn_sample_t *sample, const void *arg) {
-  Sub *pSub = (Sub *)arg;
+  SubscriberStruct *pSub = (SubscriberStruct *)arg;
   string pattern(sample->key.val, sample->key.len);
   Bytes data(sample->value.val, sample->value.val + sample->value.len);
   pSub->callback(pSub->id, pattern, data);
@@ -79,7 +79,7 @@ int BrokerZenoh::subscriber(
     std::function<void(int, string &, const Bytes &)> callback) {
   INFO(" Zenoh subscriber %d : %s ", id, pattern.c_str());
   if (_subscribers.find(id) == _subscribers.end()) {
-    Sub *sub = new Sub({id, pattern, callback, 0});
+    SubscriberStruct *sub = new SubscriberStruct({id, pattern, callback, 0});
     zn_subscriber_t *zsub =
         zn_declare_subscriber(_zenoh_session, zn_rname(pattern.c_str()),
                               zn_subinfo_default(), subscribeHandler, sub);
@@ -110,7 +110,7 @@ int BrokerZenoh::publisher(int id, string pattern) {
     zn_publisher_t *pub = zn_declare_publisher(_zenoh_session, reskey);
     if (pub == 0)
       WARN(" unable to declare publisher '%s'", pattern.c_str());
-    Pub *pPub = new Pub{id, pattern, reskey, pub};
+    PublisherStruct *pPub = new PublisherStruct{id, pattern, reskey, pub};
     _publishers.emplace(id, pPub);
   }
   return 0;

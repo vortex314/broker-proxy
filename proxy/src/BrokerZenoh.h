@@ -17,14 +17,14 @@ struct PubMsg {
   Bytes value;
 };
 
-struct Sub {
+struct SubscriberStruct {
   int id;
   string pattern;
   std::function<void(int,string&, const Bytes &)> callback;
   zn_subscriber_t *zn_subscriber;
 };
 
-struct Pub {
+struct PublisherStruct {
   int id;
   string key;
   zn_reskey_t zn_reskey;
@@ -33,8 +33,8 @@ struct Pub {
 
 class BrokerZenoh : public BrokerAbstract {
   zn_session_t *_zenoh_session;
-  unordered_map<int, Sub *> _subscribers;
-  unordered_map<int, Pub *> _publishers;
+  unordered_map<int, SubscriberStruct *> _subscribers;
+  unordered_map<int, PublisherStruct *> _publishers;
   static void subscribeHandler(const zn_sample_t *, const void *);
   zn_reskey_t resource(string topic);
   int scout();
@@ -52,6 +52,7 @@ class BrokerZenoh : public BrokerAbstract {
   int publish(int, Bytes &);
   int onSubscribe(SubscribeCallback);
   int unSubscribe(int);
+  int getId(string);
   vector<PubMsg> query(string);
 };
 

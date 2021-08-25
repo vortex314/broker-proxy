@@ -64,6 +64,18 @@ sudo make install
 '''
 
 ## RUN instructions
+
 ./redis-proxy -s /dev/ttyACM0 -b 1000000
 ./redis-proxy -s /dev/ttyUSB0 -b 921600
 
+docker run -d \
+ -p 3000:3000 \
+ --net=host \
+--name=grafana \
+ -e "GF_INSTALL_PLUGINS=redis-datasource,grafana-simple-json-datasource" \
+ grafana/grafana
+
+ this takes a minute to start, 
+ https://localhost:3000 => admin,admin
+
+ 

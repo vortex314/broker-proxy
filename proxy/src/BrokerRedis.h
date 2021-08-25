@@ -13,14 +13,14 @@ struct PubMsg {
   Bytes value;
 };
 
-struct Sub {
+struct SubscriberStruct {
   int id;
   string pattern;
   std::function<void(int, string &, const Bytes &)> callback;
   static void onMessage(redisContext *c, void *reply, void *me);
 };
 
-struct Pub {
+struct PublisherStruct {
   int id;
   string key;
   static void onReply(redisAsyncContext *c, void *reply, void *me);
@@ -28,8 +28,8 @@ struct Pub {
 
 class BrokerRedis : public BrokerAbstract {
   Thread &_thread;
-  unordered_map<int, Sub *> _subscribers;
-  unordered_map<int, Pub *> _publishers;
+  unordered_map<int, SubscriberStruct *> _subscribers;
+  unordered_map<int, PublisherStruct *> _publishers;
   int scout();
   string _hostname;
   uint16_t _port;
@@ -40,7 +40,7 @@ class BrokerRedis : public BrokerAbstract {
   Thread *_subscribeEventThread;
   struct event_base *_publishEventBase;
   struct event_base *_subscribeEventBase;
-  Sub *findSub(string pattern);
+  SubscriberStruct *findSub(string pattern);
   TimerSource _reconnectTimer;
 
 public:
@@ -57,6 +57,7 @@ public:
   int onSubscribe(SubscribeCallback);
   int unSubscribe(int);
   int command(const char *format, ...);
+  int getId(string);
   vector<PubMsg> query(string);
 };
 
