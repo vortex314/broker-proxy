@@ -24,8 +24,10 @@ StaticJsonDocument<10240> doc;
 
 Config loadConfig(int argc, char **argv) {
   Config cfg = doc.to<JsonObject>();
-  if (argc > 1) cfg["serial"]["port"] = argv[1];
-  if (argc > 2) cfg["serial"]["baudrate"] = atoi(argv[2]);
+  if (argc > 1)
+    cfg["serial"]["port"] = argv[1];
+  if (argc > 2)
+    cfg["serial"]["baudrate"] = atoi(argv[2]);
   string sCfg;
   serializeJson(doc, sCfg);
   INFO(" config : %s ", sCfg.c_str());
@@ -36,7 +38,7 @@ template <typename T>
 class TimeoutFlow : public LambdaFlow<T, bool>, public Actor {
   TimerSource _watchdogTimer;
 
- public:
+public:
   TimeoutFlow(Thread &thr, uint32_t delay)
       : Actor(thr), _watchdogTimer(thr, delay, true, "watchdog") {
     this->emit(false);
@@ -94,6 +96,8 @@ int main(int argc, char **argv) {
              .publisher<bool>("src/stellaris/system/alive");*/
 
 #ifdef BROKER_REDIS
+    broker.subscriber<bool>("src/stellaris/system/alive") >>
+        [&](const bool &b) { INFO("alive."); };
     broker.subscriber(2, "src/*", [&](int id, string key, const Bytes &bs) {
       //    broker.command(stringFormat("SET %s \%b", key.c_str()).c_str(),
       //    bs.data(), bs.size());
@@ -137,6 +141,6 @@ std::vector<std::string> split(const std::string &s, char seperator) {
       output.push_back(substring);
       prev_pos = ++pos;
     }
-    output.push_back(s.substr(prev_pos, pos - prev_pos));  // Last word
+    output.push_back(s.substr(prev_pos, pos - prev_pos)); // Last word
     return output;
 }

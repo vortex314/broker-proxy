@@ -59,6 +59,16 @@ public:
   int command(const char *format, ...);
   int getId(string);
   vector<PubMsg> query(string);
+  template <typename T> Sink<T> publisher(string) {}
+  template <typename T> Source<T> subscriber(string pattern) {
+    auto lf = new LambdaFlow<Bytes, T>([&](T &t, const Bytes &bs) {
+      CborDeserializer fromCbor(100);
+      return fromCbor.fromBytes(bs).begin().get(t).success();
+    });
+    subscriber(1, pattern,
+               [&](int id, string &topic, const Bytes &bs) { lf->on(bs); });
+    return *lf;
+  }
 };
 
 // namespace zenoh
