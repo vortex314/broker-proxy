@@ -1,8 +1,9 @@
 #ifndef _ZENOH_SESSION_H_
 #define _ZENOH_SESSION_H_
-#include "limero.h"
 #include <log.h>
+
 #include "BrokerAbstract.h"
+#include "limero.h"
 extern "C" {
 #include "zenoh.h"
 #include "zenoh/net.h"
@@ -12,20 +13,13 @@ extern "C" {
 
 using namespace std;
 
-struct PubMsg {
-  int id;
-  Bytes value;
-};
-
 struct SubscriberStruct {
-  int id;
   string pattern;
-  std::function<void(int,string&, const Bytes &)> callback;
+  std::function<void(string &, const Bytes &)> callback;
   zn_subscriber_t *zn_subscriber;
 };
 
 struct PublisherStruct {
-  int id;
   string key;
   zn_reskey_t zn_reskey;
   zn_publisher_t *zn_publisher;
@@ -33,27 +27,28 @@ struct PublisherStruct {
 
 class BrokerZenoh : public BrokerAbstract {
   zn_session_t *_zenoh_session;
-  unordered_map<int, SubscriberStruct *> _subscribers;
-  unordered_map<int, PublisherStruct *> _publishers;
-  static void subscribeHandler(const zn_sample_t *, const void *);
+  unordered_map<string, SubscriberStruct *> _subscribers;
+  unordered_map<string, PublisherStruct *> _publishers;
   zn_reskey_t resource(string topic);
   int scout();
   ValueFlow<bool> _connected;
+  QueueFlow<PubMsg> _incoming;
+  
+  PublisherStruct* publisher(string pattern) ;
+  static void subscribeHandler(const zn_sample_t *, const void *);
+
 
  public:
-  Source<bool>& connected();
-
   BrokerZenoh(Thread &, Config &);
   int init();
   int connect(string);
   int disconnect();
-  int publisher(int, string);
-  int subscriber(int, string, std::function<void(int,string&, const Bytes &)>);
-  int publish(int, Bytes &);
-  int onSubscribe(SubscribeCallback);
+  int publish(string &, Bytes &);
+  int subscribe(string &);
   int unSubscribe(int);
-  int getId(string);
   vector<PubMsg> query(string);
+  Source<PubMsg> &incoming() { return _incoming; };
+  Source<bool> &connected() { return _connected; };
 };
 
 // namespace zenoh

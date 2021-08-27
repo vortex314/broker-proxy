@@ -111,8 +111,9 @@ int main(int argc, char **argv) {
   LOGI << "Loading configuration." << LEND;
   Config config = loadConfig(argc, argv);
   Thread workerThread("worker");
+  Config serialConfig = config["serial";
 
-  Config serialConfig = config["serial"];
+  unordered_map<int,string> publishers;
 
   // SessionSerial session(workerThread, serialConfig);
 
