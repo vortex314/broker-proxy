@@ -96,7 +96,7 @@ public:
 //-------------- handler class for certain messages or events
 template <class T> class Sink {
 public:
-  virtual void on(const T &t) = 0;
+  virtual void on(const T &t)=0;
   virtual ~Sink(){};
 };
 #include <bits/atomic_word.h>
@@ -121,7 +121,8 @@ public:
       listener->on(t);
     }
   }
-  void operator>>(Sink<T> &listener) { subscribe(&listener); }
+//  void operator>>(Sink<T> listener) { subscribe(&listener); }
+//  void operator>>(Sink<T> &listener) { subscribe(&listener); }
   void operator>>(Sink<T> *listener) { subscribe(listener); }
   void operator>>(std::function<void(const T &t)> func) {
     subscribe(new SinkFunction<T>(func));
@@ -676,6 +677,7 @@ Source<OUT> &operator>>(Source<OUT> &publisher, Flow<IN, OUT> &flow) {
   publisher.subscribe(&flow);
   return flow;
 }
+
 
 //________________________________________________________________
 //

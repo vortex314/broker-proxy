@@ -1,6 +1,6 @@
 #ifndef _ZENOH_SESSION_H_
 #define _ZENOH_SESSION_H_
-#include "BrokerAbstract.h"
+#include "BrokerBase.h"
 #include "limero.h"
 #include <async.h>
 #include <hiredis.h>
@@ -8,10 +8,7 @@
 
 using namespace std;
 
-struct PubMsg {
-  int id;
-  Bytes value;
-};
+
 
 struct SubscriberStruct {
   int id;
@@ -26,7 +23,7 @@ struct PublisherStruct {
   static void onReply(redisAsyncContext *c, void *reply, void *me);
 };
 
-class BrokerRedis : public BrokerAbstract {
+class BrokerRedis : public BrokerBase {
   Thread &_thread;
   unordered_map<int, SubscriberStruct *> _subscribers;
   unordered_map<int, PublisherStruct *> _publishers;
@@ -50,25 +47,14 @@ public:
   int init();
   int connect(string);
   int disconnect();
-  int publisher(int, string);
-  int subscriber(int, string,
-                 std::function<void(int, string &, const Bytes &)>);
-  int publish(int, Bytes &);
+  int publish(string&, Bytes &);
   int onSubscribe(SubscribeCallback);
-  int unSubscribe(int);
+  int unSubscribe(string&);
+  int subscribe(string&);
   int command(const char *format, ...);
   int getId(string);
   vector<PubMsg> query(string);
-  template <typename T> Sink<T> publisher(string) {}
-  template <typename T> Source<T> subscriber(string pattern) {
-    auto lf = new LambdaFlow<Bytes, T>([&](T &t, const Bytes &bs) {
-      CborDeserializer fromCbor(100);
-      return fromCbor.fromBytes(bs).begin().get(t).success();
-    });
-    subscriber(1, pattern,
-               [&](int id, string &topic, const Bytes &bs) { lf->on(bs); });
-    return *lf;
-  }
+  
 };
 
 // namespace zenoh

@@ -4,13 +4,15 @@
 #include <CborDump.h>
 
 void BrokerZenoh::subscribeHandler(const zn_sample_t *sample, const void *arg) {
-  SubscriberStruct *pSub = (SubscriberStruct *)arg;
-  string pattern(sample->key.val, sample->key.len);
+  BrokerZenoh *pBrkr = (BrokerZenoh *)arg;
+  string topic(sample->key.val, sample->key.len);
   Bytes data(sample->value.val, sample->value.val + sample->value.len);
-  pSub->callback(pSub->id, pattern, data);
+  pBrkr->_incoming.on({topic, data});
 }
 
-BrokerZenoh::BrokerZenoh(Thread &thr, Config &cfg) { _zenoh_session = 0; }
+BrokerZenoh::BrokerZenoh(Thread &thr, Config &cfg) : BrokerBase(thr, cfg) {
+  _zenoh_session = 0;
+}
 
 int BrokerZenoh::scout() {
   zn_properties_t *config = zn_config_default();
@@ -74,27 +76,25 @@ int BrokerZenoh::disconnect() {
   // _zenoh_session = NULL;
 }
 
-int BrokerZenoh::subscriber(
-    int id, string pattern,
-    std::function<void(int, string &, const Bytes &)> callback) {
-  INFO(" Zenoh subscriber %d : %s ", id, pattern.c_str());
-  if (_subscribers.find(id) == _subscribers.end()) {
-    SubscriberStruct *sub = new SubscriberStruct({id, pattern, callback, 0});
+int BrokerZenoh::subscribe(string &pattern) {
+  INFO(" Zenoh subscriber %s ", pattern.c_str());
+  if (_subscribers.find(pattern) == _subscribers.end()) {
+    SubscriberStruct *sub = new SubscriberStruct({pattern, 0});
     zn_subscriber_t *zsub =
         zn_declare_subscriber(_zenoh_session, zn_rname(pattern.c_str()),
-                              zn_subinfo_default(), subscribeHandler, sub);
+                              zn_subinfo_default(), subscribeHandler, this);
     sub->zn_subscriber = zsub;
     if (zsub == NULL) {
       WARN(" subscription failed for %s ", pattern.c_str());
       return -1;
     }
-    _subscribers.emplace(id, sub);
+    _subscribers.emplace(pattern, sub);
   }
   return 0;
 }
 
-int BrokerZenoh::unSubscribe(int id) {
-  auto it = _subscribers.find(id);
+int BrokerZenoh::unSubscribe(string& pattern) {
+  auto it = _subscribers.find(pattern);
   if (it == _subscribers.end()) {
   } else {
     zn_undeclare_subscriber(it->second->zn_subscriber);
@@ -102,22 +102,22 @@ int BrokerZenoh::unSubscribe(int id) {
   return 0;
 }
 
-int BrokerZenoh::publisher(int id, string pattern) {
-  if (_publishers.find(id) == _publishers.end()) {
-    INFO(" Adding Zenoh publisher %d : '%s' in %d publishers", id, pattern.c_str(),
+int BrokerZenoh::newZenohPublisher(string topic) {
+  if (_publishers.find(topic) == _publishers.end()) {
+    INFO(" Adding Zenoh publisher  : '%s' in %d publishers", topic.c_str(),
          _publishers.size());
-    zn_reskey_t reskey = resource(pattern);
+    zn_reskey_t reskey = resource(topic);
     zn_publisher_t *pub = zn_declare_publisher(_zenoh_session, reskey);
     if (pub == 0)
-      WARN(" unable to declare publisher '%s'", pattern.c_str());
-    PublisherStruct *pPub = new PublisherStruct{id, pattern, reskey, pub};
-    _publishers.emplace(id, pPub);
+      WARN(" unable to declare publisher '%s'", topic.c_str());
+    PublisherStruct *pPub = new PublisherStruct{topic, reskey,pub};
+    _publishers.emplace(topic, pPub);
   }
   return 0;
 }
 
-int BrokerZenoh::publish(int id, Bytes &bs) {
-  auto it = _publishers.find(id);
+int BrokerZenoh::publish(string &topic, Bytes &bs) {
+  auto it = _publishers.find(topic);
   if (it != _publishers.end()) {
     //    INFO("publish %d : %s => %s ", id, it->second->pattern.c_str(),
     //    cborDump(bs).c_str());
@@ -127,7 +127,7 @@ int BrokerZenoh::publish(int id, Bytes &bs) {
       WARN("zn_write failed.");
     return rc;
   } else {
-    INFO(" publish id %d unknown in %d publishers. ", id, _publishers.size());
+    INFO(" publish %s unknown in %d publishers. ", topic, _publishers.size());
     return ENOENT;
   }
 }
@@ -147,12 +147,13 @@ vector<PubMsg> BrokerZenoh::query(string uri) {
       zn_query_consolidation_default());
   for (unsigned int i = 0; i < replies.len; ++i) {
     result.push_back(
-        {string(replies.val[i].data.pattern.val, replies.val[i].data.pattern.len),
-         Bytes(replies.val[i].data.value.val,
+        {string(replies.val[i].data.pattern.val,
+replies.val[i].data.pattern.len), Bytes(replies.val[i].data.value.val,
                replies.val[i].data.value.val + replies.val[i].data.value.len)});
     printf(">> [Reply handler] received (%.*s, %.*s)\n",
-           (int)replies.val[i].data.pattern.len, replies.val[i].data.pattern.val,
-           (int)replies.val[i].data.value.len, replies.val[i].data.value.val);
+           (int)replies.val[i].data.pattern.len,
+replies.val[i].data.pattern.val, (int)replies.val[i].data.value.len,
+replies.val[i].data.value.val);
   }
   zn_reply_data_array_free(replies);
   return result;
