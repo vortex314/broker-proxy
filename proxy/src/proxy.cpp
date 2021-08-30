@@ -203,7 +203,8 @@ int main(int argc, char **argv) {
     MsgPublish msgPublish;
     if (msgPublish.reflect(fromCbor.fromBytes(frame)).success()) {
       auto it = publishers.find(msgPublish.id);
-      broker.publish(it->second.topic, msgPublish.value);
+      if (it != publishers.end())
+        broker.publish(it->second.topic, msgPublish.value);
     }
   };
 

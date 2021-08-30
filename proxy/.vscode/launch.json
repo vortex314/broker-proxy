@@ -14,9 +14,9 @@
             "program": "${workspaceFolder}/build/redis-proxy",
             "args": [
                 "-s",
-                "/dev/ttyACM0",
+                "/dev/ttyUSB0",
                 "-b",
-                "1000000"
+                "921600"
             ],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
