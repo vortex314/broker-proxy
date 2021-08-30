@@ -36,10 +36,10 @@ const char *CMD_TO_STRING[] = {"B_CONNECT",   "B_DISCONNECT", "B_SUBSCRIBER",
                                "B_QUERY"};
 StaticJsonDocument<10240> doc;
 
-#define fatal(message)                                                         \
-  {                                                                            \
-    LOGW << message << LEND;                                                   \
-    exit(-1);                                                                  \
+#define fatal(message)       \
+  {                          \
+    LOGW << message << LEND; \
+    exit(-1);                \
   }
 
 Config loadConfig(int argc, char **argv) {
@@ -51,28 +51,27 @@ Config loadConfig(int argc, char **argv) {
   cfg["broker"]["port"] = 6379;
   // override args
   int c;
-  while ((c = getopt(argc, argv, "h:p:s:b:")) != -1)
-    switch (c) {
-    case 'b':
-      cfg["serial"]["baudrate"] = atoi(optarg);
-      break;
-    case 's':
-      cfg["serial"]["port"] = optarg;
-      break;
-    case 'h':
-      cfg["broker"]["host"] = optarg;
-      break;
-    case 'p':
-      cfg["broker"]["port"] = atoi(optarg);
-      break;
-    case '?':
-      printf("Usage %s -h <host> -p <port> -s <serial_port> -b <baudrate>\n",
+  while ((c = getopt(argc, argv, "h:p:s:b:")) != -1) switch (c) {
+      case 'b':
+        cfg["serial"]["baudrate"] = atoi(optarg);
+        break;
+      case 's':
+        cfg["serial"]["port"] = optarg;
+        break;
+      case 'h':
+        cfg["broker"]["host"] = optarg;
+        break;
+      case 'p':
+        cfg["broker"]["port"] = atoi(optarg);
+        break;
+      case '?':
+        printf("Usage %s -h <host> -p <port> -s <serial_port> -b <baudrate>\n",
+               argv[0]);
+        break;
+      default:
+        WARN("Usage %s -h <host> -p <port> -s <serial_port> -b <baudrate>\n",
              argv[0]);
-      break;
-    default:
-      WARN("Usage %s -h <host> -p <port> -s <serial_port> -b <baudrate>\n",
-           argv[0]);
-      abort();
+        abort();
     }
 
   string sCfg;
@@ -87,7 +86,7 @@ class MsgFilter : public LambdaFlow<bytes, Bytes> {
   MsgBase msgBase;
   ReflectFromCbor _fromCbor;
 
-public:
+ public:
   MsgFilter(int msgType)
       : LambdaFlow<bytes, Bytes>([this](bytes &out, const bytes &in) {
           //         INFO(" filter on msgType : %d in %s ",
@@ -106,16 +105,25 @@ public:
   static MsgFilter &nw(int msgType) { return *new MsgFilter(msgType); }
 };
 
+struct SubStruct {
+  int id;
+  string pattern;
+};
+
+struct PubStruct {
+  int id;
+  string topic;
+};
+
 //==========================================================================
 int main(int argc, char **argv) {
   LOGI << "Loading configuration." << LEND;
   Config config = loadConfig(argc, argv);
   Thread workerThread("worker");
-  Config serialConfig = config["serial";
+  Config serialConfig = config["serial"];
 
-  unordered_map<int,string> publishers;
-
-  // SessionSerial session(workerThread, serialConfig);
+  unordered_map<int, SubStruct> subscribers;
+  unordered_map<int, PubStruct> publishers;
 
   SessionAbstract *session;
   if (config["serial"])
@@ -145,7 +153,6 @@ int main(int argc, char **argv) {
   session->incoming() >>
       [&](const bytes &bs) { INFO("RXD %s", cborDump(bs).c_str()); };
 
-
   // filter commands from uC
   session->incoming() >> MsgFilter::nw(B_CONNECT) >> [&](const bytes &frame) {
     MsgConnect msgConnect;
@@ -168,30 +175,35 @@ int main(int argc, char **argv) {
       [&](const bytes &frame) {
         MsgSubscriber msgSubscriber;
         if (msgSubscriber.reflect(fromCbor.fromBytes(frame)).success()) {
-          int rc = broker.subscriber(
-              msgSubscriber.id, msgSubscriber.topic,
-              [&](int id, string &, const bytes &bs) {
-                MsgPublish msgPublish = {id, bs};
-                session->outgoing().on(msgPublish.reflect(toCbor).toBytes());
-              });
-          if (rc)
-            WARN(" subscriber (%s,..) = %d ", msgSubscriber.topic.c_str(), rc);
+          if (subscribers.find(msgSubscriber.id) == subscribers.end()) return;
+          subscribers.emplace(msgSubscriber.id,
+                              SubStruct{msgSubscriber.id, msgSubscriber.topic});
+          int rc = broker.subscribe(msgSubscriber.topic);
+          broker.incoming() >> [&](const PubMsg &msg) {
+            // find topic
+            int id;
+            for (auto it = subscribers.begin(); it != subscribers.end(); ++it) {
+              if (broker.match(it->second.pattern, msg.topic)) id = it->first;
+            }
+            MsgPublish msgPublish = {id, msg.payload};
+            session->outgoing().on(msgPublish.reflect(toCbor).toBytes());
+          };
         }
       };
 
   session->incoming() >> MsgFilter::nw(B_PUBLISHER) >> [&](const bytes &frame) {
     MsgPublisher msgPublisher;
     if (msgPublisher.reflect(fromCbor.fromBytes(frame)).success()) {
-      int rc = broker.publisher(msgPublisher.id, msgPublisher.topic);
-      if (rc)
-        WARN("  publish (%s,..) = %d ", msgPublisher.topic.c_str(), rc);
+      publishers.emplace(msgPublisher.id,
+                         PubStruct{msgPublisher.id, msgPublisher.topic});
     };
   };
 
   session->incoming() >> MsgFilter::nw(B_PUBLISH) >> [&](const bytes &frame) {
     MsgPublish msgPublish;
     if (msgPublish.reflect(fromCbor.fromBytes(frame)).success()) {
-      broker.publish(msgPublish.id, msgPublish.value);
+      auto it = publishers.find(msgPublish.id);
+      broker.publish(it->second.topic, msgPublish.value);
     }
   };
 
@@ -203,8 +215,7 @@ int main(int argc, char **argv) {
         }
       };
   session->connected() >> [&](const bool isConnected) {
-    if (!isConnected)
-      broker.disconnect();
+    if (!isConnected) broker.disconnect();
   };
 
   workerThread.run();

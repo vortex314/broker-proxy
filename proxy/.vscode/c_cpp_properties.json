@@ -10,7 +10,7 @@
                 "${workspaceFolder}/../../zenoh-c/include/",
                 "${workspaceFolder}/../../tinycbor/src",
                 "${workspaceFolder}/../hiredis",
-                "${workspaceFolder}/../../etl/include",
+                "${workspaceFolder}/../etl/include",
                 "${workspaceFolder}/src/",
                 "${workspaceFolder}/../../ArduinoJson/src"
             ],

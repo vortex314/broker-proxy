@@ -1,35 +1,21 @@
 #ifndef _ZENOH_SESSION_H_
 #define _ZENOH_SESSION_H_
-#include "BrokerAbstract.h"
-#include "limero.h"
 #include <async.h>
 #include <hiredis.h>
 #include <log.h>
 
+#include "BrokerBase.h"
+#include "limero.h"
+
 using namespace std;
 
-struct PubMsg {
-  int id;
-  Bytes value;
-};
-
 struct SubscriberStruct {
-  int id;
   string pattern;
-  std::function<void(int, string &, const Bytes &)> callback;
-  static void onMessage(redisContext *c, void *reply, void *me);
 };
 
-struct PublisherStruct {
-  int id;
-  string key;
-  static void onReply(redisAsyncContext *c, void *reply, void *me);
-};
-
-class BrokerRedis : public BrokerAbstract {
+class BrokerRedis : public BrokerBase {
   Thread &_thread;
-  unordered_map<int, SubscriberStruct *> _subscribers;
-  unordered_map<int, PublisherStruct *> _publishers;
+  unordered_map<string, SubscriberStruct *> _subscribers;
   int scout();
   string _hostname;
   uint16_t _port;
@@ -42,23 +28,26 @@ class BrokerRedis : public BrokerAbstract {
   struct event_base *_subscribeEventBase;
   SubscriberStruct *findSub(string pattern);
   TimerSource _reconnectTimer;
+  static void onMessage(redisContext *c, void *reply, void *me);
 
-public:
+ public:
   Source<bool> &connected();
 
   BrokerRedis(Thread &, Config &);
   int init();
   int connect(string);
   int disconnect();
-  int publish(string&,Bytes&);
-  int subscribe(string&,
-                 std::function<void(int, string &, const Bytes &)>);
-  int unSubscribe(int);
+  int publish(string , Bytes &);
+  int onSubscribe(SubscribeCallback);
+  int unSubscribe(string );
+  int subscribe(string );
+  bool match(string pattern, string source);
+
   int command(const char *format, ...);
   int getId(string);
-  
-
+  int newRedisPublisher(string topic);
+  vector<PubMsg> query(string);
 };
 
 // namespace zenoh
-#endif // _ZENOH_SESSION_h_
+#endif  // _ZENOH_SESSION_h_

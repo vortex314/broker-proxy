@@ -1,9 +1,9 @@
-#ifndef _ZENOH_SESSION_H_
-#define _ZENOH_SESSION_H_
-#include <log.h>
 
-#include "BrokerAbstract.h"
+#ifndef _BROKER_ZENOH_H_
+#define _BROKER_ZENOH_H_
+#include "BrokerBase.h"
 #include "limero.h"
+#include <log.h>
 extern "C" {
 #include "zenoh.h"
 #include "zenoh/net.h"
@@ -25,31 +25,27 @@ struct PublisherStruct {
   zn_publisher_t *zn_publisher;
 };
 
-class BrokerZenoh : public BrokerAbstract {
+class BrokerZenoh : public BrokerBase {
   zn_session_t *_zenoh_session;
   unordered_map<string, SubscriberStruct *> _subscribers;
   unordered_map<string, PublisherStruct *> _publishers;
+  static void subscribeHandler(const zn_sample_t *, const void *);
   zn_reskey_t resource(string topic);
   int scout();
   ValueFlow<bool> _connected;
-  QueueFlow<PubMsg> _incoming;
-  
-  PublisherStruct* publisher(string pattern) ;
-  static void subscribeHandler(const zn_sample_t *, const void *);
-
+  int newZenohPublisher(string topic);
 
  public:
   BrokerZenoh(Thread &, Config &);
   int init();
   int connect(string);
   int disconnect();
-  int publish(string &, Bytes &);
-  int subscribe(string &);
-  int unSubscribe(int);
+  int publish(string , Bytes &);
+  int subscribe(string );
+  int unSubscribe(string);
+  bool match(string pattern, string source);
   vector<PubMsg> query(string);
-  Source<PubMsg> &incoming() { return _incoming; };
-  Source<bool> &connected() { return _connected; };
 };
 
 // namespace zenoh
-#endif  // _ZENOH_SESSION_h_
+#endif // _ZENOH_SESSION_h_

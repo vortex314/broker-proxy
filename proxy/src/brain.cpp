@@ -59,74 +59,64 @@ int main(int argc, char **argv) {
   TimerSource pubTimer(workerThread, 2000, true, "pubTimer");
   CborSerializer cborSerializer(1024);
   CborDeserializer cborDeserializer(1024);
+  TimerSource ticker(workerThread, 3000, true, "ticker");
 #ifdef BROKER_ZENOH
   BrokerZenoh broker(workerThread, brokerConfig);
   broker.init();
   int rc = broker.connect("brain");
-  rc = broker.subscriber(1, "src/**", [&](int id, string key, const Bytes &bs) {
 #endif
 #ifdef BROKER_REDIS
     BrokerRedis broker(workerThread, brokerConfig);
     broker.init();
     int rc = broker.connect("brain");
     TimeoutFlow<uint64_t> fl(workerThread, 2000);
-    /*    brk.subscriber<uint64_t>("src/stellaris/system/uptime") >> fl >>
-            brk.publisher<bool>("src/stellaris/system/alive"); */
-    rc =
-        broker.subscriber(1, "src/*", [&](int id, string key, const Bytes &bs) {
 #endif
-          // broker.scout();
-          //          LOGI << key << "=" << cborDump(bs) << LEND;
-          if (key == "src/brain/system/uptime") {
-            uint64_t ts;
-            uint64_t delay;
-            cborDeserializer.fromBytes(bs).begin() >> ts;
-            delay = Sys::micros() - ts;
-            LOGI << " recv ts " << ts << LEND;
 
-            if (cborDeserializer.success())
-              LOGI << " latency : " << delay << " usec " << LEND;
-          }
-        });
-    rc = broker.publisher(2, "src/brain/system/uptime");
-    rc = broker.publisher(3, "src/brain/system/latency");
-    /* broker.subscriber(4, "src/stellaris/system/uptime") >>
-         TimeoutFlow<uint64_t>(workerThread, 2000) >>
-         broker
-             .publisher<bool>("src/stellaris/system/alive");*/
+    broker.subscriber<int>("") >>
+        * new LambdaFlow<int, uint64_t>([&](uint64_t &out, const int &) {
+          out = Sys::micros();
+          return true;
+        }) >>
+        broker.publisher<uint64_t>("src/brain/system/uptime");
+
+    broker.subscriber<uint64_t>("src/brain/system/uptime") >>
+        * new LambdaFlow<uint64_t, uint64_t>([&](uint64_t &out, const uint64_t &in) {
+          out = Sys::micros() - in;
+          LOGI << " recv ts " << in << " latency : " << out << " usec " << LEND;
+          return true;
+        }) >>
+        broker.publisher<uint64_t>("src/brain/system/latency");
 
 #ifdef BROKER_REDIS
     broker.subscriber<bool>("src/stellaris/system/alive") >>
         [&](const bool &b) { INFO("alive."); };
-    broker.subscriber(2, "src/*", [&](int id, string key, const Bytes &bs) {
+
+    broker.subscribe("src/*");
+    broker.incoming() >> [&](const PubMsg &msg) {
       //    broker.command(stringFormat("SET %s \%b", key.c_str()).c_str(),
       //    bs.data(), bs.size());
-      vector<string> parts = split(key, '/');
+      vector<string> parts = split(msg.topic, '/');
+      string key = msg.topic;
       int64_t i64;
-      if (cborDeserializer.fromBytes(bs).begin().get(i64).success()) {
+      if (cborDeserializer.fromBytes(msg.payload).begin().get(i64).success()) {
         broker.command(stringFormat("SET %s %ld ", key.c_str(), i64).c_str());
         broker.command(stringFormat("TS.ADD ts-%s %lu %ld", key.c_str(),
                                     Sys::millis(), i64)
                            .c_str());
       }
       double d;
-      if (cborDeserializer.fromBytes(bs).begin().get(d).success()) {
+      if (cborDeserializer.fromBytes(msg.payload).begin().get(d).success()) {
         broker.command(stringFormat("SET %s %f ", key.c_str(), d).c_str());
         broker.command(
             stringFormat("TS.ADD ts-%s %lu %f", key.c_str(), Sys::millis(), d)
                 .c_str());
       }
       string s;
-      if (cborDeserializer.fromBytes(bs).begin().get(s).success())
+      if (cborDeserializer.fromBytes(msg.payload).begin().get(s).success())
         broker.command(
             stringFormat("SET  %s \"%s\" ", key.c_str(), s.c_str()).c_str());
-    });
-#endif
-
-    pubTimer >> [&](const TimerMsg &) {
-      Bytes bs = cborSerializer.begin().add(Sys::micros()).end().toBytes();
-      broker.publish(2, bs);
     };
+#endif
 
     workerThread.run();
     broker.disconnect();
