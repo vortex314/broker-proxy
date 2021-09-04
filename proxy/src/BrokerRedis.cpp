@@ -42,12 +42,13 @@ BrokerRedis::BrokerRedis(Thread &thread, Config &cfg)
   _hostname = cfg["broker"]["host"] | "localhost";
   _port = cfg["broker"]["port"] | 6379;
 
-  _connected >> [](const bool &connected) {
+  connected >> [](const bool &connected) {
     LOGI << "Connection state : " << (connected ? "connected" : "disconnected")
          << LEND;
   };
+  connected = false;
   _reconnectTimer >> [&](const TimerMsg &) {
-    if (!_connected()) connect("");
+    if (!connected()) connect("");
   };
 }
 
@@ -56,8 +57,9 @@ void free_privdata(void *pvdata) {}
 int BrokerRedis::init() { return 0; }
 
 int BrokerRedis::connect(string clientId) {
-  if (_connected()) {
-    _connected = true;
+  if (connected()) {
+    LOGI << " Connecting but already connected." << LEND;
+    connected = true;
     return 0;
   }
   redisOptions options = {0};
@@ -92,7 +94,7 @@ int BrokerRedis::connect(string clientId) {
   });
   _publishContext = redisConnectWithOptions(&options);
   if (_publishContext == NULL) return ENOTCONN;
-  _connected = true;
+  connected = true;
   _publishContext->privdata = this;
   _subscribeContext->privdata = this;
   return 0;
@@ -100,28 +102,30 @@ int BrokerRedis::connect(string clientId) {
 
 int BrokerRedis::disconnect() {
   LOGI << (" disconnecting.") << LEND;
-  if (!_connected()) return 0;
+  if (!connected()) return 0;
   _thread.deleteInvoker(_subscribeContext->fd);
   redisFree(_publishContext);
   redisFree(_subscribeContext);
-
-  for (auto tuple : _subscribers) {
-  }
   _subscribers.clear();
-  _connected = false;
+  connected = false;
   return 0;
 }
 
 int BrokerRedis::subscribe(string pattern) {
+  INFO(" REDIS psubscribe %s", pattern.c_str());
   if (_subscribers.find(pattern) == _subscribers.end()) {
     SubscriberStruct *sub = new SubscriberStruct({pattern});
-    redisReply *r = (redisReply *)redisCommand(
-        _subscribeContext, "PSUBSCRIBE %s", pattern.c_str());
+    string cmd = stringFormat("PSUBSCRIBE %s", pattern.c_str());
+    INFO(" REDIS cmd %s", cmd.c_str());
+    redisReply *r = (redisReply *)redisCommand(_subscribeContext, cmd.c_str());
     if (r) {
-      LOGI << " PSUBSCRIBE : " << pattern << " created." << LEND;
+      LOGI << cmd << LEND;
       _subscribers.emplace(pattern, sub);
       freeReplyObject(r);
+    } else {
+      LOGW << cmd << " failed." << LEND;
     }
+  } else {
   }
   return 0;
 }
@@ -142,7 +146,7 @@ int BrokerRedis::unSubscribe(string pattern) {
 }
 
 int BrokerRedis::publish(string topic, Bytes &bs) {
-  if (!_connected()) return ENOTCONN;
+  if (!connected()) return ENOTCONN;
 
   redisReply *r = (redisReply *)redisCommand(_publishContext, "PUBLISH %s %b",
                                              topic, bs.data(), bs.size());
@@ -154,8 +158,6 @@ int BrokerRedis::publish(string topic, Bytes &bs) {
   return 0;
 }
 
-Source<bool> &BrokerRedis::connected() { return _connected; }
-
 SubscriberStruct *BrokerRedis::findSub(string pattern) {
   for (auto it : _subscribers) {
     if (it.second->pattern == pattern) return it.second;
@@ -164,7 +166,7 @@ SubscriberStruct *BrokerRedis::findSub(string pattern) {
 }
 
 int BrokerRedis::command(const char *format, ...) {
-  if (!_connected()) return ENOTCONN;
+  if (!connected()) return ENOTCONN;
   va_list ap;
   va_start(ap, format);
   void *reply = redisvCommand(_publishContext, format, ap);

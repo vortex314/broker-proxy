@@ -10,9 +10,10 @@ LedBlinker ledBlinkerBlue(mainThread, PIN_LED, 100);
 TimerSource aliveTimer(mainThread, 1000, true, "alive");
 Button button1(mainThread, PIN_BUTTON);
 Poller poller(mainThread);
+Config cfg;
 BrokerSerial brkr(mainThread, Serial);
 LambdaSource<uint64_t> systemUptime([]() { return Sys::millis(); });
-LambdaSource<String> systemHostname([]() { return Sys::hostname(); });
+LambdaSource<std::string> systemHostname([]() { return Sys::hostname(); });
 LambdaSource<const char *> systemBoard([]() { return Sys::board(); });
 LambdaSource<const char *> systemCpu([]() { return Sys::cpu(); });
 LambdaSource<uint32_t> systemHeap([]() {
@@ -23,11 +24,13 @@ LambdaSource<uint32_t> systemHeap([]() {
 #endif
 });
 
-ValueFlow<String> systemBuild = String(__DATE__ " " __TIME__);
+ValueFlow<std::string> systemBuild = std::string(__DATE__ " " __TIME__);
 void serialEvent() { BrokerSerial::onRxd(&brkr); }
 
 void setup() {
   Serial.begin(BAUDRATE);
+  Serial.println("starting...");Serial.flush();
+
   aliveTimer >> [](const TimerMsg &) {
     LOGI << Sys::hostname() << " alive."
          << (brkr.connected() ? "connected" : "disconnected") << LEND;
@@ -44,8 +47,8 @@ void setup() {
   brkr.node(Sys::hostname());
   brkr.init();
   brkr.connected >> ledBlinkerBlue.blinkSlow;
-  systemBuild >> brkr.publisher<String>("system/build");
-  systemHostname >> brkr.publisher<String>("system/hostname");
+  systemBuild >> brkr.publisher<std::string>("system/build");
+  systemHostname >> brkr.publisher<std::string>("system/hostname");
   systemHeap >> brkr.publisher<uint32_t>("system/heap");
 }
 

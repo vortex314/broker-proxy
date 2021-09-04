@@ -3,7 +3,7 @@
 #include <assert.h>
 #include <cbor.h>
 #include <context.h>
-#include <logger.h>
+#include <log.h>
 
 class CborDeserializer {
   CborParser _decoder;
@@ -23,7 +23,7 @@ public:
     return *this;
   };
   CborDeserializer &get(Bytes &t);
-  CborDeserializer &get(String &t);
+  CborDeserializer &get(std::string &t);
   CborDeserializer &get(int &t);
   //  CborDeserializer &get(int32_t &t, const char *n="",const char
   //  *d="");

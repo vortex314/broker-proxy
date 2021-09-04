@@ -23,8 +23,8 @@ int printf(const char *format, ...);
 #undef max
 #endif
 
-typedef String ClientId;
-typedef String TopicName;
+typedef std::string ClientId;
+typedef std::string TopicName;
 typedef const char *Config;
 
 #else // __ARDUINO__

@@ -51,7 +51,7 @@ CborDeserializer &CborDeserializer::get(Bytes &t) {
   return *this;
 }
 
-CborDeserializer &CborDeserializer::get(String &t) {
+CborDeserializer &CborDeserializer::get(std::string &t) {
   if (!_err && cbor_value_is_text_string(&_it)) {
     char *temp;
     size_t size;

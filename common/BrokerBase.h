@@ -18,23 +18,23 @@ class BrokerBase : public Actor
   QueueFlow<PubMsg> _outgoing;
   CborSerializer _toCbor;
   CborDeserializer _fromCbor;
-  ValueFlow<bool> _connected;
   friend class BrokerZenoh;
   friend class BrokerRedis;
+  friend class BrokerSerial;
 
 public:
   BrokerBase(Thread &thr, Config &)
       : Actor(thr), _incoming(10, "incoming"), _outgoing(10, "outgoing"),
-        _toCbor(1024), _fromCbor(1024){};
+        _toCbor(256), _fromCbor(256){};
   virtual int init() = 0;
-  virtual int connect(string) = 0;
+  virtual int connect(String) = 0;
   virtual int disconnect() = 0;
-  virtual int publish(string , Bytes &) = 0;
-  virtual int subscribe(string ) = 0;
-  virtual int unSubscribe(string ) = 0;
-  virtual bool match(string pattern, string source) = 0;
+  virtual int publish(String , Bytes &) = 0;
+  virtual int subscribe(String ) = 0;
+  virtual int unSubscribe(String ) = 0;
+  virtual bool match(String pattern, String source) = 0;
 
-  Source<bool> &connected() { return _connected; };
+  ValueFlow<bool> connected;
   Source<PubMsg> &incoming() { return _incoming; };
 
   template <typename T>
@@ -48,7 +48,7 @@ public:
     return *sf;
   }
   template <typename T>
-  Source<T> &subscriber(string pattern)
+  Source<T> &subscriber(String pattern)
   {
     auto lf = new LambdaFlow<PubMsg, T>([&](T &t, const PubMsg &msg)
                                         {

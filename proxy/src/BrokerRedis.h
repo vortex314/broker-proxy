@@ -21,7 +21,6 @@ class BrokerRedis : public BrokerBase {
   uint16_t _port;
   redisContext *_subscribeContext;
   redisContext *_publishContext;
-  ValueFlow<bool> _connected;
   Thread *_publishEventThread;
   Thread *_subscribeEventThread;
   struct event_base *_publishEventBase;
@@ -31,7 +30,7 @@ class BrokerRedis : public BrokerBase {
   static void onMessage(redisContext *c, void *reply, void *me);
 
  public:
-  Source<bool> &connected();
+  ValueFlow<bool> connected;
 
   BrokerRedis(Thread &, Config &);
   int init();

@@ -9,22 +9,22 @@ const int MsgDisconnect::TYPE;
 class MsgFilter : public LambdaFlow<Bytes, Bytes>
 {
   int _msgType;
-  MsgBase msgBase;
-  ReflectFromCbor _fromCbor;
+  CborDeserializer _fromCbor;
 
 public:
   MsgFilter(int msgType)
-      : LambdaFlow<Bytes, Bytes>([this](Bytes &out, const Bytes &in)
+      : LambdaFlow<Bytes, Bytes>([&](Bytes &out, const Bytes &in)
                                  {
-                                   if (msgBase.reflect(_fromCbor.fromBytes(in)).success() &&
-                                       msgBase.msgType == _msgType)
+                                   int msgType;
+                                   if (_fromCbor.fromBytes(in).begin().get(msgType).success() &&
+                                       msgType == _msgType)
                                    {
                                      out = in;
                                      return true;
                                    }
                                    return false;
                                  }),
-        _fromCbor(50)
+        _fromCbor(100)
   {
     _msgType = msgType;
   };
@@ -32,87 +32,88 @@ public:
 };
 
 BrokerSerial::BrokerSerial(Thread &thr, Stream &serial)
-    : Broker(thr),
+    : Actor(thr),
       _serial(serial),
       _toCbor(100), _fromCbor(100),
-      keepAliveTimer(thr, 1000, true),
-      connectTimer(thr, 3000, true) {}
+      _loopbackTimer(thr, 1000, true, "loopbackTimer"),
+      _connectTimer(thr, 2000, true, "connectTimer"),
+      _outgoing(5),
+      _incoming(5)
+{
+  node(Sys::hostname());
+  _outgoing.async(thr); // reduces stack need
+  _incoming.async(thr);
+  connected.async(thr);
+}
+
 BrokerSerial::~BrokerSerial() {}
 
-void BrokerSerial::node(const char *n) { _node = n; };
+void BrokerSerial::node(const char *n)
+{
+  _node = n;
+  _srcPrefix = "src/" + _node + "/";
+  _dstPrefix = "dst/" + _node + "/";
+  _loopbackTopic = _dstPrefix + "system/loopback";
+  connected = false;
+};
 
-void BrokerSerial::init()
+int BrokerSerial::init()
 {
   // outgoing
-  connected = false;
-  if (_node.length() == 0)
-    _node = Sys::hostname();
-  brokerSrcPrefix = "src/" + _node + "/";
-  brokerDstPrefix = "dst/" + _node + "/";
+  _uptimePublisher = &publisher<uint64_t>("system/uptime");
+  _latencyPublisher = &publisher<uint64_t>("system/latency");
+  _loopbackSubscriber = &subscriber<uint64_t>("system/loopback");
+  _loopbackPublisher = &publisher<uint64_t>(_loopbackTopic);
 
-  uptimePub = &publisher<uint64_t>("system/uptime");
-  latencyPub = &publisher<uint64_t>("system/latency");
-
-  uptimeSub = &subscriber<uint64_t>(brokerSrcPrefix + "system/uptime");
-
-/*  fromSerialMsg >> [&](const Bytes &bs)
+  _fromSerialFrame >> [&](const Bytes &bs)
   { LOGI << "RXD [" << bs.size() << "] " << cborDump(bs).c_str() << LEND; };
-  toSerialMsg >> [&](const Bytes &bs)
-  { LOGI << "TXD [" << bs.size() << "] " << cborDump(bs).c_str() << LEND; };*/
+  _toSerialFrame >> [&](const Bytes &bs)
+  { LOGI << "TXD [" << bs.size() << "] " << cborDump(bs).c_str() << LEND; };
 
-  toSerialMsg >> _frameToBytes >> [&](const Bytes &bs)
-  { _serial.write(bs.data(), bs.size()); };
-
-  serialRxd >> _bytesToFrame >> fromSerialMsg;
-  fromSerialMsg >> MsgFilter::nw(B_PUBLISH) >> incomingPublish;
-  fromSerialMsg >> MsgFilter::nw(B_CONNECT) >> incomingConnect;
-  fromSerialMsg >> MsgFilter::nw(B_DISCONNECT) >> incomingDisconnect;
-
-  keepAliveTimer >> [&](const TimerMsg &tm)
+  _toSerialFrame >> _frameToBytes >> [&](const Bytes &bs)
   {
-    if (connected())
+    _serial.write(bs.data(), bs.size());
+  };
+
+  _outgoing >> [&](const PubMsg &msg)
+  {
+    if (_toCbor.begin().add(MsgPublish::TYPE).add(msg.topic).add(msg.payload).end().success())
+      _toSerialFrame.on(_toCbor.toBytes());
+  };
+
+  serialRxd >> [](const Bytes &bs)
+  { INFO("RXD %d", bs.size()); };
+  serialRxd >> _fromSerialFrame;
+
+  _fromSerialFrame >> MsgFilter::nw(B_PUBLISH) >> [&](const Bytes &msg)
+  {
+    int msgType;
+    PubMsg pubMsg;
+    if (_fromCbor.begin().get(msgType).get(pubMsg.topic).get(pubMsg.payload).end().success())
     {
-      uptimePub->on(Sys::millis());
-    }
-    else
-    {
-      MsgConnect msgConnect = {brokerSrcPrefix};
-      toSerialMsg.on(msgConnect.reflect(_toCbor).toBytes());
+      _incoming.on(pubMsg);
     }
   };
-  incomingConnect >>
-      [&](const Bytes &in)
+
+  _loopbackTimer >> [&](const TimerMsg &tm)
   {
+    _uptimePublisher->on(Sys::millis());
+    _loopbackPublisher->on(Sys::millis());
+  };
+
+  subscriber<uint64_t>(_loopbackTopic) >>
+      [&](const uint64_t &in)
+  {
+    _latencyPublisher->on(Sys::millis() - in);
     connected = true;
-    LOGI << " subscribers :" << _subscribers.size()
-         << "publishers :  " << _publishers.size() << LEND;
-    for (auto sub : _subscribers)
-    {
-      MsgSubscriber msgSubscriber = {sub->id(), sub->key()};
-      toSerialMsg.on(msgSubscriber.reflect(_toCbor).toBytes());
-    }
-    for (auto pub : _publishers)
-    {
-      MsgPublisher msgPublisher = {pub->id(), pub->key()};
-      toSerialMsg.on(msgPublisher.reflect(_toCbor).toBytes());
-    }
-    CHECK;
+    _connectTimer.reset();
   };
 
-  *uptimeSub >> [&](const uint64_t &t)
-  {
-    latencyPub->on(Sys::millis() - t);
-    _loopbackReceived = Sys::millis();
-  };
-
-  connectTimer >> [&](const TimerMsg &tm)
-  {
-    uint64_t timeSinceLoopback = Sys::millis() - _loopbackReceived;
-    if (timeSinceLoopback > 3000)
-      connected = false;
-  };
+  _connectTimer >> [&](const TimerMsg &)
+  { connected = false; };
 
   _serial.setTimeout(0);
+  return 0;
 }
 
 void BrokerSerial::onRxd(void *me)
@@ -124,4 +125,11 @@ void BrokerSerial::onRxd(void *me)
     data.push_back(brk->_serial.read());
   }
   brk->serialRxd.emit(data);
+}
+
+int BrokerSerial::publish(std::string topic, Bytes &bs)
+{
+  _outgoing.on({topic, bs});
+  ;
+  return 0;
 }

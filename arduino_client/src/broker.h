@@ -32,15 +32,14 @@ namespace broker
   template <typename T>
   class Publisher : public LambdaFlow<T, Bytes>, public Resource
   {
-    ReflectToCbor &toCbor;
+    CborSerializer _toCbor(100);
+    TopicName topic;
 
   public:
     Publisher(int rid, TopicName &key)
         : LambdaFlow<T, Bytes>([&](Bytes &cb, const T &t)
                                {
-                                 Bytes bs = toCbor.begin().member(t).end().toBytes();
-                                 MsgPublish msgPublish = {id(), bs};
-                                 cb = msgPublish.reflect(toCbor).toBytes();
+                                 cb = _toCbor.begin().add(MsgPublish::TYPE).add(key).add(t).end().toBytes();
                                  return true;
                                }),
           Resource(rid, key), toCbor(*new ReflectToCbor(100)){};

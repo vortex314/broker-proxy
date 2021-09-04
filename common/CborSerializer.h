@@ -3,11 +3,12 @@
 #include <assert.h>
 #include <cbor.h>
 #include <context.h>
-#include <logger.h>
+#include <log.h>
 
 using namespace std;
 
-class CborSerializer {
+class CborSerializer
+{
   uint32_t _capacity;
   size_t _size;
   CborError _err;
@@ -18,20 +19,22 @@ class CborSerializer {
 public:
   CborSerializer(int size);
   ~CborSerializer();
-  template <typename T> CborSerializer &add(T t) {
-    *this << t;
-    return *this;
+  template <typename T>
+  CborSerializer &operator<<(T t)
+  {
+    return add(t);
   }
+  // CborSerializer &addRaw(const Bytes& );
 
-  CborSerializer &operator<<(int t);
-  //  CborSerializer &operator<<(int32_t &t);
-  CborSerializer &operator<<(uint32_t t);
-  CborSerializer &operator<<(int64_t t);
-  CborSerializer &operator<<(uint64_t t);
-  CborSerializer &operator<<(String t);
-  CborSerializer &operator<<(float t);
-  CborSerializer &operator<<(double t);
-  CborSerializer &operator<<(Bytes t);
+  CborSerializer &add(int t);
+  //  CborSerializer &add(int32_t &t);
+  CborSerializer &add(uint32_t t);
+  CborSerializer &add(int64_t t);
+  CborSerializer &add(uint64_t t);
+  CborSerializer &add(std::string t);
+  CborSerializer &add(float t);
+  CborSerializer &add(double t);
+  CborSerializer &add(Bytes t);
   CborSerializer &begin();
   CborSerializer &end();
   bool success();

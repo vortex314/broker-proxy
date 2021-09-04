@@ -3,9 +3,9 @@
 #include <assert.h>
 #include <string.h>
 
-String hexDump(Bytes bs, const char *spacer) {
+std::string hexDump(Bytes bs, const char *spacer) {
   static char HEX_DIGITS[] = "0123456789ABCDEF";
-  String out;
+  std::string out;
   for (uint8_t b : bs) {
     out += HEX_DIGITS[b >> 4];
     out += HEX_DIGITS[b & 0xF];
@@ -14,8 +14,8 @@ String hexDump(Bytes bs, const char *spacer) {
   return out;
 }
 
-String charDump(Bytes bs) {
-  String out;
+std::string charDump(Bytes bs) {
+  std::string out;
   for (uint8_t b : bs) {
     if (isprint(b))
       out += (char)b;

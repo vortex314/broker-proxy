@@ -96,7 +96,7 @@ int Thread::waitInvoker(uint32_t timeout) {
     }
     return 0;
   } else {
-    TRACE(" timeout %llu", Sys::millis());
+    DEBUG(" timeout %llu", Sys::millis());
     return ETIMEDOUT;
   }
   return ECOMM;

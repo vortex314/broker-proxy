@@ -9,6 +9,7 @@ typedef enum {
   B_PUBLISHER,   // TXD  id, string, qos
   B_PUBLISH,     // RXD,TXD id , Bytes value
   B_RESOURCE,    // RXD id
+  B_UNSUBSCRIBE
 } MsgType;
 
 #define TOPIC_SIZE 40

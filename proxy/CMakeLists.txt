@@ -110,7 +110,8 @@ target_sources(zenoh-proxy PRIVATE
   ${COMMON}/CborSerializer.cpp
   ${COMMON}/CborDeserializer.cpp
   ${COMMON}/CborDump.cpp
-  ${COMMON}/Frame.cpp) 
+  ${COMMON}/Frame.cpp
+  ${COMMON}/util.cpp ) 
 
   target_sources(redis-proxy PRIVATE 
   src/proxy.cpp 
@@ -127,7 +128,8 @@ target_sources(zenoh-proxy PRIVATE
   ${COMMON}/CborSerializer.cpp
   ${COMMON}/CborDeserializer.cpp
   ${COMMON}/CborDump.cpp
-  ${COMMON}/Frame.cpp) 
+  ${COMMON}/Frame.cpp
+  ${COMMON}/util.cpp ) 
 
 target_sources(redis-brain PRIVATE
 src/Sys.cpp
@@ -138,7 +140,7 @@ ${COMMON}/CborDeserializer.cpp
 src/BrokerRedis.cpp
 ${COMMON}/CborDump.cpp
 src/brain.cpp
-)
+${COMMON}/util.cpp )
 
 target_sources(zenoh-brain PRIVATE
 src/Sys.cpp
@@ -149,7 +151,7 @@ ${COMMON}/CborDeserializer.cpp
 src/BrokerZenoh.cpp
 ${COMMON}/CborDump.cpp
 src/brain.cpp
-)
+${COMMON}/util.cpp )
 
 target_sources(udp-client PRIVATE
 src/Sys.cpp
@@ -160,7 +162,7 @@ ${COMMON}/CborDeserializer.cpp
 ${COMMON}/CborDump.cpp
 src/udp_client.cpp
 src/Udp.cpp
-)
+${COMMON}/util.cpp )
 
 target_link_libraries(redis-proxy 
 -L/home/lieven/workspace/tinycbor/lib -l:libtinycbor.a

@@ -2,6 +2,7 @@
 #include <config.h>
 #include <log.h>
 #include <stdio.h>
+#include <util.h>
 
 #include <thread>
 #include <unordered_map>
@@ -122,8 +123,7 @@ int main(int argc, char **argv) {
   Thread workerThread("worker");
   Config serialConfig = config["serial"];
 
-  unordered_map<int, SubStruct> subscribers;
-  unordered_map<int, PubStruct> publishers;
+  string subscription="tagada";
 
   SessionAbstract *session;
   if (config["serial"])
@@ -142,7 +142,7 @@ int main(int argc, char **argv) {
   INFO(" Launching Redis");
   BrokerRedis broker(workerThread, brokerConfig);
 #endif
-  ReflectFromCbor fromCbor(1024);
+  CborDeserializer fromCbor(1024);
   ReflectToCbor toCbor(1024);
   session->init();
   session->connect();
@@ -154,69 +154,36 @@ int main(int argc, char **argv) {
       [&](const bytes &bs) { INFO("RXD %s", cborDump(bs).c_str()); };
 
   // filter commands from uC
-  session->incoming() >> MsgFilter::nw(B_CONNECT) >> [&](const bytes &frame) {
-    MsgConnect msgConnect;
-    if (msgConnect.reflect(fromCbor.fromBytes(frame)).success()) {
-      int rc = broker.connect(msgConnect.clientId);
-    }
-  };
-
-  broker.connected() >> [&](const bool &connected) {
-    if (connected) {
-      MsgConnect msgConnectReply = {"connected"};
-      session->outgoing().on(msgConnectReply.reflect(toCbor).toBytes());
-    } else {
-      MsgDisconnect msgDisconnectReply = {};
-      session->outgoing().on(msgDisconnectReply.reflect(toCbor).toBytes());
-    }
-  };
-
-  session->incoming() >> MsgFilter::nw(B_SUBSCRIBER) >>
-      [&](const bytes &frame) {
-        MsgSubscriber msgSubscriber;
-        if (msgSubscriber.reflect(fromCbor.fromBytes(frame)).success()) {
-          if (subscribers.find(msgSubscriber.id) == subscribers.end()) return;
-          subscribers.emplace(msgSubscriber.id,
-                              SubStruct{msgSubscriber.id, msgSubscriber.topic});
-          int rc = broker.subscribe(msgSubscriber.topic);
-          broker.incoming() >> [&](const PubMsg &msg) {
-            // find topic
-            int id;
-            for (auto it = subscribers.begin(); it != subscribers.end(); ++it) {
-              if (broker.match(it->second.pattern, msg.topic)) id = it->first;
-            }
-            MsgPublish msgPublish = {id, msg.payload};
-            session->outgoing().on(msgPublish.reflect(toCbor).toBytes());
-          };
-        }
-      };
-
-  session->incoming() >> MsgFilter::nw(B_PUBLISHER) >> [&](const bytes &frame) {
-    MsgPublisher msgPublisher;
-    if (msgPublisher.reflect(fromCbor.fromBytes(frame)).success()) {
-      publishers.emplace(msgPublisher.id,
-                         PubStruct{msgPublisher.id, msgPublisher.topic});
-    };
-  };
-
   session->incoming() >> MsgFilter::nw(B_PUBLISH) >> [&](const bytes &frame) {
-    MsgPublish msgPublish;
-    if (msgPublish.reflect(fromCbor.fromBytes(frame)).success()) {
-      auto it = publishers.find(msgPublish.id);
-      if (it != publishers.end())
-        broker.publish(it->second.topic, msgPublish.value);
-    }
-  };
-
-  session->incoming() >> MsgFilter::nw(B_DISCONNECT) >>
-      [&](const bytes &frame) {
-        MsgDisconnect msgDisconnect;
-        if (msgDisconnect.reflect(fromCbor.fromBytes(frame)).success()) {
-          broker.disconnect();
+    INFO(" PUBLISH received ");
+    int msgType;
+    string topic;
+    Bytes payload;
+    if (fromCbor.fromBytes(frame)
+            .begin()
+            .get(msgType)
+            .get(topic)
+            .get(payload)
+            .success()) {
+      if (!broker.connected())
+        broker.connect(topic);  // TODO extract nodename later
+      broker.publish(topic, payload);
+      if (topic.rfind("src/", 0) == 0) {
+        INFO(" starts with src/ ");
+        if (topic.rfind(subscription, 0) != 0) {
+          INFO(" didn't find subscription %s", subscription.c_str());
+          vector<string> parts = split(topic, '/');
+          string prefix = parts[0] + '/';
+          prefix += parts[1];
+          subscription = prefix;
+          broker.subscribe(prefix + "/*");
+        } else {
+          INFO(" found subscription %s", subscription.c_str());
         }
-      };
-  session->connected() >> [&](const bool isConnected) {
-    if (!isConnected) broker.disconnect();
+      } else {
+        INFO(" topic %s doesn't start with src/ ",topic.c_str());
+      }
+    }
   };
 
   workerThread.run();

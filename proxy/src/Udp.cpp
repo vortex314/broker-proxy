@@ -1,6 +1,7 @@
 
 #include <Udp.h>
 #include <log.h>
+#include <util.h>
 
 int Udp::init() {
   struct sockaddr_in servaddr;
@@ -123,23 +124,6 @@ bool getInetAddr(in_addr_t &addr, std::string &hostname) {
   return addr != (in_addr_t)(-1);
 }
 
-std::vector<std::string> split(const std::string &s, char seperator) {
-  std::vector<std::string> output;
-
-  std::string::size_type prev_pos = 0, pos = 0;
-
-  while ((pos = s.find(seperator, pos)) != std::string::npos) {
-    std::string substring(s.substr(prev_pos, pos - prev_pos));
-
-    output.push_back(substring);
-
-    prev_pos = ++pos;
-  }
-
-  output.push_back(s.substr(prev_pos, pos - prev_pos)); // Last word
-
-  return output;
-}
 
 bool getNumber(uint16_t &x, const string &s) {
   x = 0;

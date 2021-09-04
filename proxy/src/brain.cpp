@@ -2,13 +2,13 @@
 #include <config.h>
 #include <log.h>
 #include <stdio.h>
+#include <util.h>
 
 #include <thread>
 #include <unordered_map>
 #include <utility>
 
 using namespace std;
-std::vector<std::string> split(const std::string &s, char seperator);
 
 LogS logger;
 #ifdef BROKER_ZENOH
@@ -72,6 +72,7 @@ int main(int argc, char **argv) {
     TimeoutFlow<uint64_t> fl(workerThread, 2000);
 #endif
 
+
     broker.subscriber<int>("") >>
         * new LambdaFlow<int, uint64_t>([&](uint64_t &out, const int &) {
           out = Sys::micros();
@@ -123,14 +124,4 @@ int main(int argc, char **argv) {
 }
 
 
-std::vector<std::string> split(const std::string &s, char seperator) {
-    std::vector<std::string> output;
-    std::string::size_type prev_pos = 0, pos = 0;
-    while ((pos = s.find(seperator, pos)) != std::string::npos) {
-      std::string substring(s.substr(prev_pos, pos - prev_pos));
-      output.push_back(substring);
-      prev_pos = ++pos;
-    }
-    output.push_back(s.substr(prev_pos, pos - prev_pos)); // Last word
-    return output;
-}
+
