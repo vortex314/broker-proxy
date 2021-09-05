@@ -139,7 +139,6 @@ ${COMMON}/util.cpp )
 
 target_link_libraries(redis-proxy 
 -L/home/lieven/workspace/tinycbor/lib -l:libtinycbor.a
--L/usr/local/lib/ -lzenohc
 -lpthread  
 -lhiredis
 -lrt  
