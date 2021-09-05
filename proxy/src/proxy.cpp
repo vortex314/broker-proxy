@@ -82,39 +82,7 @@ Config loadConfig(int argc, char **argv) {
 };
 
 //================================================================
-class MsgFilter : public LambdaFlow<bytes, Bytes> {
-  int _msgType;
-  MsgBase msgBase;
-  ReflectFromCbor _fromCbor;
 
- public:
-  MsgFilter(int msgType)
-      : LambdaFlow<bytes, Bytes>([this](bytes &out, const bytes &in) {
-          //         INFO(" filter on msgType : %d in %s ",
-          //         _msgType,cborDump(in).c_str());
-          if (msgBase.reflect(_fromCbor.fromBytes(in)).success() &&
-              msgBase.msgType == _msgType) {
-            //            INFO(" found msgType : %d  ", msgBase.msgType);
-            out = in;
-            return true;
-          }
-          return false;
-        }),
-        _fromCbor(1024) {
-    _msgType = msgType;
-  };
-  static MsgFilter &nw(int msgType) { return *new MsgFilter(msgType); }
-};
-
-struct SubStruct {
-  int id;
-  string pattern;
-};
-
-struct PubStruct {
-  int id;
-  string topic;
-};
 
 //==========================================================================
 int main(int argc, char **argv) {
@@ -123,7 +91,8 @@ int main(int argc, char **argv) {
   Thread workerThread("worker");
   Config serialConfig = config["serial"];
 
-  string subscription="tagada";
+  string dstPrefix;
+  string srcPrefix;
 
   SessionAbstract *session;
   if (config["serial"])
@@ -137,54 +106,81 @@ int main(int argc, char **argv) {
 #ifdef BROKER_ZENOH
   INFO(" Launching Zenoh");
   BrokerZenoh broker(workerThread, brokerConfig);
+  BrokerZenoh brokerProxy(workerThread, brokerConfig);
 #endif
 #ifdef BROKER_REDIS
   INFO(" Launching Redis");
   BrokerRedis broker(workerThread, brokerConfig);
+  BrokerRedis brokerProxy(workerThread, brokerConfig);
 #endif
   CborDeserializer fromCbor(1024);
-  ReflectToCbor toCbor(1024);
+  CborSerializer toCbor(1024);
   session->init();
   session->connect();
   // zSession.scout();
   broker.init();
+  brokerProxy.init();
+  brokerProxy.connect(config["serial"]["port"]);
   // CBOR de-/serialization
 
   session->incoming() >>
       [&](const bytes &bs) { INFO("RXD %s", cborDump(bs).c_str()); };
 
   // filter commands from uC
-  session->incoming() >> MsgFilter::nw(B_PUBLISH) >> [&](const bytes &frame) {
-    INFO(" PUBLISH received ");
-    int msgType;
-    string topic;
-    Bytes payload;
-    if (fromCbor.fromBytes(frame)
-            .begin()
-            .get(msgType)
-            .get(topic)
-            .get(payload)
-            .success()) {
-      if (!broker.connected())
-        broker.connect(topic);  // TODO extract nodename later
-      broker.publish(topic, payload);
-      if (topic.rfind("src/", 0) == 0) {
-        INFO(" starts with src/ ");
-        if (topic.rfind(subscription, 0) != 0) {
-          INFO(" didn't find subscription %s", subscription.c_str());
-          vector<string> parts = split(topic, '/');
-          string prefix = parts[0] + '/';
-          prefix += parts[1];
-          subscription = prefix;
-          broker.subscribe(prefix + "/*");
-        } else {
-          INFO(" found subscription %s", subscription.c_str());
+  auto getPubMsg =
+      new LambdaFlow<Bytes, PubMsg>([&](PubMsg &msg, const Bytes &frame) {
+        int msgType;
+        return fromCbor.fromBytes(frame)
+                   .begin()
+                   .get(msgType)
+                   .get(msg.topic)
+                   .get(msg.payload)
+                   .success() &&
+               msgType == B_PUBLISH;
+      });
+
+  auto publishSubscribeConnect =
+      new SinkFunction<PubMsg>([&](const PubMsg &msg) {
+        {
+          // TODO extract nodename later
+          broker.publish(msg.topic, msg.payload);
+          if (msg.topic.rfind("src/", 0) == 0) {
+            if (!broker.connected()) {
+              string node = split(msg.topic, '/')[1];
+              broker.connect(node);
+              brokerProxy.subscribe(stringFormat("dst/proxy-%s/*",node.c_str()));
+            }
+            if (dstPrefix.size() == 0 || msg.topic.rfind(srcPrefix, 0) != 0) {
+              INFO(" didn't find subscription %s in %s ", msg.topic.c_str(),
+                   dstPrefix.c_str());
+              vector<string> parts = split(msg.topic, '/');
+              dstPrefix = "dst/";
+              srcPrefix = "src/";
+              dstPrefix += parts[1] + "/";
+              srcPrefix += parts[1] + "/";
+              broker.subscribe(dstPrefix + "*");
+            } else {
+              DEBUG(" found subscription %s", dstPrefix.c_str());
+            }
+          } else {
+            DEBUG(" topic %s doesn't start with src/ ", msg.topic.c_str());
+          }
         }
-      } else {
-        INFO(" topic %s doesn't start with src/ ",topic.c_str());
-      }
-    }
-  };
+      });
+
+  session->incoming() >> getPubMsg >> publishSubscribeConnect;
+
+  broker.incoming() >>
+      new LambdaFlow<PubMsg, Bytes>([&](Bytes &bs, const PubMsg &msg) {
+        bs = toCbor.begin()
+                 .add(MsgPublish::TYPE)
+                 .add(msg.topic)
+                 .add(msg.payload)
+                 .end()
+                 .toBytes();
+        return toCbor.success();
+      }) >>
+      session->outgoing();
 
   workerThread.run();
   delete session;

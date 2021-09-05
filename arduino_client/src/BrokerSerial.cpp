@@ -36,9 +36,9 @@ BrokerSerial::BrokerSerial(Thread &thr, Stream &serial)
       _serial(serial),
       _toCbor(100), _fromCbor(100),
       _loopbackTimer(thr, 1000, true, "loopbackTimer"),
-      _connectTimer(thr, 2000, true, "connectTimer"),
-      _outgoing(5),
-      _incoming(5)
+      _connectTimer(thr, 3000, true, "connectTimer"),
+      _outgoing(10, "_outgoing"),
+      _incoming(5, "_incoming")
 {
   node(Sys::hostname());
   _outgoing.async(thr); // reduces stack need
@@ -65,11 +65,11 @@ int BrokerSerial::init()
   _loopbackSubscriber = &subscriber<uint64_t>("system/loopback");
   _loopbackPublisher = &publisher<uint64_t>(_loopbackTopic);
 
-  _fromSerialFrame >> [&](const Bytes &bs)
+ /* _fromSerialFrame >> [&](const Bytes &bs)
   { LOGI << "RXD [" << bs.size() << "] " << cborDump(bs).c_str() << LEND; };
   _toSerialFrame >> [&](const Bytes &bs)
   { LOGI << "TXD [" << bs.size() << "] " << cborDump(bs).c_str() << LEND; };
-
+*/
   _toSerialFrame >> _frameToBytes >> [&](const Bytes &bs)
   {
     _serial.write(bs.data(), bs.size());
@@ -81,18 +81,20 @@ int BrokerSerial::init()
       _toSerialFrame.on(_toCbor.toBytes());
   };
 
-  serialRxd >> [](const Bytes &bs)
-  { INFO("RXD %d", bs.size()); };
+  //serialRxd >> [](const Bytes &bs)
+  //{ INFO("RXD %d", bs.size()); };
   serialRxd >> _fromSerialFrame;
 
-  _fromSerialFrame >> MsgFilter::nw(B_PUBLISH) >> [&](const Bytes &msg)
+  _fromSerialFrame >> [&](const Bytes &msg)
   {
     int msgType;
     PubMsg pubMsg;
-    if (_fromCbor.begin().get(msgType).get(pubMsg.topic).get(pubMsg.payload).end().success())
+    if (_fromCbor.fromBytes(msg).begin().get(msgType).get(pubMsg.topic).get(pubMsg.payload).end().success() && msgType == B_PUBLISH)
     {
       _incoming.on(pubMsg);
     }
+    else
+      WARN(" no publish Msg %s", cborDump(msg).c_str());
   };
 
   _loopbackTimer >> [&](const TimerMsg &tm)
@@ -130,6 +132,5 @@ void BrokerSerial::onRxd(void *me)
 int BrokerSerial::publish(std::string topic, Bytes &bs)
 {
   _outgoing.on({topic, bs});
-  ;
   return 0;
 }

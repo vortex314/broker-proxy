@@ -31,9 +31,9 @@ find_library(REDIS_PLUS_PLUS_LIB redis++)
 # target_link_libraries(target ${REDIS_PLUS_PLUS_LIB})
 
 add_definitions(-DZENOH_LINUX -DZENOH_TRANSPORT_UDP_IP -DZENOH_DEBUG=1 -DLINUX -std=c++11)
-set (ZENOH_TRANSPORT_UDP "ON")
+# set (ZENOH_TRANSPORT_UDP "ON")
 
-set(ZENOHC /home/lieven/workspace/zenoh-c)
+# set(ZENOHC /home/lieven/workspace/zenoh-c)
 set(HIREDIS ../hiredis )
 set(LIMERO /home/lieven/workspace/limero )
 set(TINYCBOR ../tinycbor )
@@ -44,7 +44,7 @@ set(COMMON ../common )
 include_directories(
   src 
   /usr/local/include
-  ${ZENOHC}/include
+#  ${ZENOHC}/include
   ${COMMON}
   ${TINYCBOR}/src
   ${ETL}/include
@@ -59,25 +59,25 @@ set(CMAKE_C_FLAGS "${CMAKE_CXX_FLAGS} -g -DZENOH_LINUX -DZENOH_TRANSPORT_UDP_IP 
 set (CMAKE_CXX_STANDARD 11)
  
 # set up our program
-add_executable(zenoh-proxy)
+# add_executable(zenoh-proxy)
 add_executable(redis-proxy)
 
 add_executable(redis-brain)
-add_executable(zenoh-brain)
+# add_executable(zenoh-brain)
 
 add_executable(test)
 add_executable(redis-test)
 add_executable(udp-client)
 
 target_compile_options(redis-proxy PRIVATE "-DBROKER_REDIS")
-target_compile_options(zenoh-proxy PRIVATE "-DBROKER_ZENOH")
+# target_compile_options(zenoh-proxy PRIVATE "-DBROKER_ZENOH")
 target_compile_options(redis-brain PRIVATE "-DBROKER_REDIS")
-target_compile_options(zenoh-brain PRIVATE "-DBROKER_ZENOH")
+# target_compile_options(zenoh-brain PRIVATE "-DBROKER_ZENOH")
 
 
 target_sources(test PRIVATE 
-src/limero.cpp
-src/test.cpp 
+  src/limero.cpp
+  src/test.cpp 
   src/logger.cpp
   src/Sys.cpp
   ${COMMON}/CborSerializer.cpp
@@ -86,32 +86,14 @@ src/test.cpp
  ) 
 
  target_sources(redis-test PRIVATE 
-src/limero.cpp
-src/redis-test.cpp 
+  src/limero.cpp
+  src/redis-test.cpp 
   src/logger.cpp
   src/Sys.cpp
   ${COMMON}/CborSerializer.cpp
   ${COMMON}/CborDeserializer.cpp
   ${COMMON}/CborDump.cpp
  ) 
-
-target_sources(zenoh-proxy PRIVATE 
-  src/proxy.cpp 
-  src/config.cpp 
-  src/SessionSerial.cpp
-  src/serial.cpp 
-  src/SessionUdp.cpp
-  src/Udp.cpp 
-  src/BrokerZenoh.cpp
-  src/logger.cpp
-  src/Sys.cpp
-  src/limero.cpp
-  ${COMMON}/ppp_frame.cpp 
-  ${COMMON}/CborSerializer.cpp
-  ${COMMON}/CborDeserializer.cpp
-  ${COMMON}/CborDump.cpp
-  ${COMMON}/Frame.cpp
-  ${COMMON}/util.cpp ) 
 
   target_sources(redis-proxy PRIVATE 
   src/proxy.cpp 
@@ -142,16 +124,7 @@ ${COMMON}/CborDump.cpp
 src/brain.cpp
 ${COMMON}/util.cpp )
 
-target_sources(zenoh-brain PRIVATE
-src/Sys.cpp
-src/limero.cpp
-src/logger.cpp
-${COMMON}/CborSerializer.cpp
-${COMMON}/CborDeserializer.cpp
-src/BrokerZenoh.cpp
-${COMMON}/CborDump.cpp
-src/brain.cpp
-${COMMON}/util.cpp )
+
 
 target_sources(udp-client PRIVATE
 src/Sys.cpp
@@ -171,6 +144,35 @@ target_link_libraries(redis-proxy
 -lhiredis
 -lrt  
 -latomic)
+#[[
+target_sources(zenoh-proxy PRIVATE 
+  src/proxy.cpp 
+  src/config.cpp 
+  src/SessionSerial.cpp
+  src/serial.cpp 
+  src/SessionUdp.cpp
+  src/Udp.cpp 
+  src/BrokerZenoh.cpp
+  src/logger.cpp
+  src/Sys.cpp
+  src/limero.cpp
+  ${COMMON}/ppp_frame.cpp 
+  ${COMMON}/CborSerializer.cpp
+  ${COMMON}/CborDeserializer.cpp
+  ${COMMON}/CborDump.cpp
+  ${COMMON}/Frame.cpp
+  ${COMMON}/util.cpp ) 
+
+target_sources(zenoh-brain PRIVATE
+src/Sys.cpp
+src/limero.cpp
+src/logger.cpp
+${COMMON}/CborSerializer.cpp
+${COMMON}/CborDeserializer.cpp
+src/BrokerZenoh.cpp
+${COMMON}/CborDump.cpp
+src/brain.cpp
+${COMMON}/util.cpp )
 
 target_link_libraries(zenoh-proxy 
 -L/home/lieven/workspace/tinycbor/lib -l:libtinycbor.a
@@ -179,6 +181,13 @@ target_link_libraries(zenoh-proxy
 -lrt 
 -latomic)
 
+target_link_libraries(zenoh-brain 
+-L/home/lieven/workspace/tinycbor/lib -l:libtinycbor.a
+-L/usr/local/lib/ -lzenohc
+-lpthread  
+-lrt  
+-latomic)
+]]
 
 target_link_libraries(redis-test 
 -L/home/lieven/workspace/tinycbor/lib -l:libtinycbor.a
@@ -216,12 +225,7 @@ gtest_main
 -lrt  
 -latomic)
 
-target_link_libraries(zenoh-brain 
--L/home/lieven/workspace/tinycbor/lib -l:libtinycbor.a
--L/usr/local/lib/ -lzenohc
--lpthread  
--lrt  
--latomic)
+
 
 include(GoogleTest)
 gtest_discover_tests(test)

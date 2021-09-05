@@ -40,7 +40,7 @@ class BrokerZenoh : public BrokerBase {
   int init();
   int connect(string);
   int disconnect();
-  int publish(string , Bytes &);
+  int publish(string , const Bytes &);
   int subscribe(string );
   int unSubscribe(string);
   bool match(string pattern, string source);

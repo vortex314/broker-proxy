@@ -104,7 +104,6 @@ int Thread::waitInvoker(uint32_t timeout) {
 
 Thread::Thread(const char *name) : Named(name) {
   createQueue();
-  INFO(" thread %s timers:%d", name,_timers.size());
 }
 
 void Thread::createQueue() {
@@ -119,7 +118,6 @@ void Thread::createQueue() {
 }
 
 void Thread::addTimer(TimerSource *ts) {
-  INFO("thread %s timers:%d ",name(), _timers.size());
   _timers.push_back(ts);
 }
 

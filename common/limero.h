@@ -190,7 +190,6 @@ public:
   {
     _readPtr = _writePtr = 0;
     _array = (T *)new T[size];
-    ;
   }
   bool push(const T &t)
   {
@@ -202,6 +201,7 @@ public:
     {
       stats.bufferOverflow++;
       interrupts();
+      WARN("ArrayQueue sz %d rd %d wr %d ",size(),_readPtr,_writePtr);
       return false;
     }
     _writePtr = desired;
@@ -670,7 +670,7 @@ class QueueFlow : public Flow<T, T>, public Invoker, public Named
   Thread *_thread = 0;
 
 public:
-  QueueFlow(size_t capacity, const char *name = "QueueFlow")
+  QueueFlow(size_t capacity, const char *name = "no-name")
       : Named(name), _queue(capacity){};
   void on(const T &t)
   {
@@ -679,7 +679,7 @@ public:
       if (_queue.push(t))
         _thread->enqueue(this);
       else
-        WARN(" push failed");
+        WARN("QueueFlow '%s' push failed",name());
     }
     else
     {
@@ -691,13 +691,9 @@ public:
   {
     T value;
     if (_queue.pop(value))
-    {
       this->emit(value);
-    }
     else
-    {
       WARN(" no data ");
-    }
   }
 
   void async(Thread &thread) { _thread = &thread; }
@@ -775,6 +771,13 @@ Source<OUT> &operator>>(Source<IN> &publisher, Flow<IN, OUT> &flow)
   return flow;
 }
 
+template <class IN, class OUT>
+Source<OUT> &operator>>(Source<IN> &publisher, Flow<IN, OUT> *flow)
+{
+  publisher.subscribe(flow);
+  return *flow;
+}
+
 //________________________________________________________________
 //
 template <class T>
@@ -794,15 +797,11 @@ public:
   T &operator()() { return _t; }
   void on(const T &t)
   {
+    _t = t;
     if (_thread)
-    {
-      _t = t;
       _thread->enqueue(this);
-    }
     else
-    {
       this->emit(t);
-    }
   }
   void invoke() { this->emit(_t); };
   void async(Thread &thread) { _thread = &thread; }

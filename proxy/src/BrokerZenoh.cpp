@@ -114,7 +114,7 @@ int BrokerZenoh::newZenohPublisher(string topic) {
   return 0;
 }
 
-int BrokerZenoh::publish(string topic, Bytes &bs) {
+int BrokerZenoh::publish(string topic, const Bytes &bs) {
   auto it = _publishers.find(topic);
   if (it != _publishers.end()) {
     //    INFO("publish %d : %s => %s ", id, it->second->pattern.c_str(),

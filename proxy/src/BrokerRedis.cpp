@@ -19,28 +19,30 @@ void BrokerRedis::onMessage(redisContext *c, void *reply, void *me) {
     LOGW << " unexpected reply " << LEND;
   }
 }
-/*
-void PublisherStruct::onReply(redisAsyncContext *c, void *reply, void *me) {
-  PublisherStruct *sub = (PublisherStruct *)me;
-  redisReply *r = (redisReply *)reply;
-  if (r->type == REDIS_REPLY_ARRAY) {
-    for (int j = 0; j < r->elements; j++) {
-      LOGI << j << ":" << r->element[j]->str << LEND;
-    }
-  } else if (r->type == REDIS_REPLY_INTEGER) {
-    LOGD << " integer received " << r->integer << LEND;
-  } else {
-    LOGW << " unexpected reply elements:" << r->elements << " type:" << r->type
-         << LEND;
+
+void showReply(void *r) {
+  if (r == 0) {
+    LOGI << "reply failed. " << LEND;
   }
-}*/
+  redisReply *reply = (redisReply *)r;
+  if (reply->type == REDIS_REPLY_ARRAY) {
+    for (int j = 0; j < reply->elements; j++) {
+      LOGI << j << ":" << reply->element[j]->str << LEND;
+    }
+  } else if (reply->type == REDIS_REPLY_INTEGER) {
+    LOGI << " integer received " << reply->integer << LEND;
+  } else {
+    LOGI << " unexpected reply elements:" << reply->elements
+         << " type:" << reply->type << LEND;
+  }
+}
 
 BrokerRedis::BrokerRedis(Thread &thread, Config &cfg)
     : BrokerBase(thread, cfg),
       _thread(thread),
       _reconnectTimer(thread, 3000, true, "reconnectTimer") {
-  _hostname = cfg["broker"]["host"] | "localhost";
-  _port = cfg["broker"]["port"] | 6379;
+  _hostname = cfg["host"] | "localhost";
+  _port = cfg["port"] | 6379;
 
   connected >> [](const bool &connected) {
     LOGI << "Connection state : " << (connected ? "connected" : "disconnected")
@@ -50,13 +52,21 @@ BrokerRedis::BrokerRedis(Thread &thread, Config &cfg)
   _reconnectTimer >> [&](const TimerMsg &) {
     if (!connected()) connect("");
   };
+  _incoming >> [&](const PubMsg &msg) {
+    INFO("Redis RXD %s %s ", msg.topic.c_str(), cborDump(msg.payload).c_str());
+  };
 }
 
 void free_privdata(void *pvdata) {}
 
 int BrokerRedis::init() { return 0; }
 
-int BrokerRedis::connect(string clientId) {
+int BrokerRedis::connect(string node) {
+  _node = node;
+  _dstPrefix = "dst/";
+  _dstPrefix += _node + "/";
+  _srcPrefix = "src/";
+  _srcPrefix += _node + "/";
   if (connected()) {
     LOGI << " Connecting but already connected." << LEND;
     connected = true;
@@ -93,7 +103,11 @@ int BrokerRedis::connect(string clientId) {
     }
   });
   _publishContext = redisConnectWithOptions(&options);
-  if (_publishContext == NULL) return ENOTCONN;
+  if (_publishContext == NULL || _publishContext->err) {
+    LOGW << " Connection " << _hostname << ":" << _port << "  failed."
+         << _publishContext->errstr << LEND;
+    return ENOTCONN;
+  }
   connected = true;
   _publishContext->privdata = this;
   _subscribeContext->privdata = this;
@@ -145,15 +159,16 @@ int BrokerRedis::unSubscribe(string pattern) {
   return 0;
 }
 
-int BrokerRedis::publish(string topic, Bytes &bs) {
+int BrokerRedis::publish(string topic, const Bytes &bs) {
   if (!connected()) return ENOTCONN;
-
-  redisReply *r = (redisReply *)redisCommand(_publishContext, "PUBLISH %s %b",
-                                             topic, bs.data(), bs.size());
+  redisReply *r = (redisReply *)redisCommand(
+      _publishContext, "PUBLISH %s %b", topic.c_str(), bs.data(), bs.size());
   if (r == 0) {
-    LOGW << "PUBLISH failed " << topic << LEND;
+    LOGW << "Redis PUBLISH failed " << topic << LEND;
   } else {
-    LOGD << " PUBLISH : " << topic << ":" << cborDump(bs) << LEND;
+    // showReply(r);
+    freeReplyObject(r);
+    LOGI << "Redis PUBLISH " << topic << ":" << cborDump(bs) << LEND;
   }
   return 0;
 }

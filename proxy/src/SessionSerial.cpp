@@ -10,6 +10,9 @@ SessionSerial::SessionSerial(Thread &thread, Config config)
   _errorInvoker = new SerialSessionError(*this);
   _port = config["port"].as<std::string>();
   _baudrate = config["baudrate"].as<uint32_t>();
+  _incomingSerial.async(thread);
+  _outgoingMessage.async(thread);
+  _incomingMessage.async(thread);
 }
 
 bool SessionSerial::init() {

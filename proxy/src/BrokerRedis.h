@@ -19,6 +19,7 @@ class BrokerRedis : public BrokerBase {
   int scout();
   string _hostname;
   uint16_t _port;
+  string _node;
   redisContext *_subscribeContext;
   redisContext *_publishContext;
   Thread *_publishEventThread;
@@ -36,7 +37,7 @@ class BrokerRedis : public BrokerBase {
   int init();
   int connect(string);
   int disconnect();
-  int publish(string , Bytes &);
+  int publish(string , const Bytes &);
   int onSubscribe(SubscribeCallback);
   int unSubscribe(string );
   int subscribe(string );

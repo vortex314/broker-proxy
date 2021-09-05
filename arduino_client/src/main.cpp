@@ -7,7 +7,7 @@
 LogS logger;
 Thread mainThread("main");
 LedBlinker ledBlinkerBlue(mainThread, PIN_LED, 100);
-TimerSource aliveTimer(mainThread, 1000, true, "alive");
+TimerSource aliveTimer(mainThread, 5000, true, "alive");
 Button button1(mainThread, PIN_BUTTON);
 Poller poller(mainThread);
 Config cfg;

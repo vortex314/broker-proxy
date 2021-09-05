@@ -7,6 +7,7 @@
 #include <thread>
 #include <unordered_map>
 #include <utility>
+#include <unistd.h>
 
 using namespace std;
 
@@ -24,13 +25,39 @@ StaticJsonDocument<10240> doc;
 
 Config loadConfig(int argc, char **argv) {
   Config cfg = doc.to<JsonObject>();
-  if (argc > 1)
-    cfg["serial"]["port"] = argv[1];
-  if (argc > 2)
-    cfg["serial"]["baudrate"] = atoi(argv[2]);
+  // defaults
+  cfg["serial"]["port"] = "/dev/ttyUSB0";
+  cfg["serial"]["baudrate"] = 115200;
+  cfg["broker"]["host"] = "localhost";
+  cfg["broker"]["port"] = 6379;
+  // override args
+  int c;
+  while ((c = getopt(argc, argv, "h:p:s:b:")) != -1) switch (c) {
+      case 'b':
+        cfg["serial"]["baudrate"] = atoi(optarg);
+        break;
+      case 's':
+        cfg["serial"]["port"] = optarg;
+        break;
+      case 'h':
+        cfg["broker"]["host"] = optarg;
+        break;
+      case 'p':
+        cfg["broker"]["port"] = atoi(optarg);
+        break;
+      case '?':
+        printf("Usage %s -h <host> -p <port> -s <serial_port> -b <baudrate>\n",
+               argv[0]);
+        break;
+      default:
+        WARN("Usage %s -h <host> -p <port> -s <serial_port> -b <baudrate>\n",
+             argv[0]);
+        abort();
+    }
+
   string sCfg;
   serializeJson(doc, sCfg);
-  INFO(" config : %s ", sCfg.c_str());
+  LOGI << sCfg << LEND;
   return cfg;
 };
 
@@ -55,7 +82,7 @@ public:
 int main(int argc, char **argv) {
   Config config = loadConfig(argc, argv);
   Thread workerThread("worker");
-  Config brokerConfig = config["zenoh"];
+  Config brokerConfig = config["broker"];
   TimerSource pubTimer(workerThread, 2000, true, "pubTimer");
   CborSerializer cborSerializer(1024);
   CborDeserializer cborDeserializer(1024);

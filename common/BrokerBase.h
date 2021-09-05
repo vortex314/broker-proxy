@@ -18,6 +18,8 @@ class BrokerBase : public Actor
   QueueFlow<PubMsg> _outgoing;
   CborSerializer _toCbor;
   CborDeserializer _fromCbor;
+  std::string _srcPrefix;
+  std::string _dstPrefix;
   friend class BrokerZenoh;
   friend class BrokerRedis;
   friend class BrokerSerial;
@@ -29,9 +31,9 @@ public:
   virtual int init() = 0;
   virtual int connect(String) = 0;
   virtual int disconnect() = 0;
-  virtual int publish(String , Bytes &) = 0;
-  virtual int subscribe(String ) = 0;
-  virtual int unSubscribe(String ) = 0;
+  virtual int publish(String, const Bytes &) = 0;
+  virtual int subscribe(String) = 0;
+  virtual int unSubscribe(String) = 0;
   virtual bool match(String pattern, String source) = 0;
 
   ValueFlow<bool> connected;
@@ -40,19 +42,25 @@ public:
   template <typename T>
   Sink<T> &publisher(TopicName topic)
   {
-    SinkFunction<T> *sf = new SinkFunction<T>([&](const T &t)
+    std::string absTopic = _srcPrefix + topic;
+    if (topic.rfind("src/", 0) == 0 || topic.rfind("dst/", 0) == 0)
+      absTopic = topic;
+    SinkFunction<T> *sf = new SinkFunction<T>([&, absTopic](const T &t)
                                               {
                                                 Bytes bs = _toCbor.begin().add(t).end().toBytes();
-                                                _outgoing.on({topic, bs});
+                                                _outgoing.on({absTopic, bs});
                                               });
     return *sf;
   }
   template <typename T>
-  Source<T> &subscriber(String pattern)
+  Source<T> &subscriber(std::string pattern)
   {
-    auto lf = new LambdaFlow<PubMsg, T>([&](T &t, const PubMsg &msg)
+    std::string absPattern = _dstPrefix + pattern;
+    if (pattern.rfind("src/", 0) == 0 || pattern.rfind("dst/", 0) == 0)
+      absPattern = pattern;
+    auto lf = new LambdaFlow<PubMsg, T>([&, absPattern](T &t, const PubMsg &msg)
                                         {
-                                          if (match(pattern, msg.topic))
+                                          if (msg.topic == absPattern || match(absPattern, msg.topic))
                                             return _fromCbor.fromBytes(msg.payload).begin().get(t).success();
                                           else
                                             return false;
