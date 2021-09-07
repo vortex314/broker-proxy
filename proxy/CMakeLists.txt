@@ -68,12 +68,19 @@ add_executable(redis-brain)
 add_executable(test)
 add_executable(redis-test)
 add_executable(udp-client)
+add_executable(dtr_rts)
 
 target_compile_options(redis-proxy PRIVATE "-DBROKER_REDIS")
 # target_compile_options(zenoh-proxy PRIVATE "-DBROKER_ZENOH")
 target_compile_options(redis-brain PRIVATE "-DBROKER_REDIS")
 # target_compile_options(zenoh-brain PRIVATE "-DBROKER_ZENOH")
 
+
+target_sources(dtr_rts PRIVATE 
+  src/DtrRts.cpp
+  src/logger.cpp
+  src/Sys.cpp
+ )
 
 target_sources(test PRIVATE 
   src/limero.cpp
@@ -192,6 +199,11 @@ target_link_libraries(redis-test
 -L/home/lieven/workspace/tinycbor/lib -l:libtinycbor.a
 gtest_main
 -lhiredis
+-lpthread  
+-lrt  
+-latomic)
+
+target_link_libraries(dtr_rts 
 -lpthread  
 -lrt  
 -latomic)

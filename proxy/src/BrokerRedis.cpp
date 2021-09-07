@@ -130,7 +130,7 @@ int BrokerRedis::subscribe(string pattern) {
   if (_subscribers.find(pattern) == _subscribers.end()) {
     SubscriberStruct *sub = new SubscriberStruct({pattern});
     string cmd = stringFormat("PSUBSCRIBE %s", pattern.c_str());
-    INFO(" REDIS cmd %s", cmd.c_str());
+    INFO(" REDIS context %X cmd %s", _subscribeContext, cmd.c_str());
     redisReply *r = (redisReply *)redisCommand(_subscribeContext, cmd.c_str());
     if (r) {
       LOGI << cmd << LEND;

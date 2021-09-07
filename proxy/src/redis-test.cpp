@@ -13,10 +13,7 @@
 #include <iostream>
 using namespace std;
 const int MsgPublish::TYPE;
-const int MsgPublisher::TYPE;
-const int MsgSubscriber::TYPE;
-const int MsgConnect::TYPE;
-const int MsgDisconnect::TYPE;
+
 
 LogS logger;
 

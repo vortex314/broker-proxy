@@ -46,6 +46,7 @@ public:
   void node(const char *);
   int init();
   int publish(std::string, Bytes &);
+  int subscribe(std::string);
 
   template <typename T>
   Sink<T> &publisher(std::string topic)

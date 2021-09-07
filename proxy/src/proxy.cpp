@@ -26,10 +26,7 @@ LogS logger;
 #include <SessionUdp.h>
 #include <broker_protocol.h>
 const int MsgPublish::TYPE;
-const int MsgPublisher::TYPE;
-const int MsgSubscriber::TYPE;
-const int MsgConnect::TYPE;
-const int MsgDisconnect::TYPE;
+
 //====================================================
 
 const char *CMD_TO_STRING[] = {"B_CONNECT",   "B_DISCONNECT", "B_SUBSCRIBER",
@@ -83,7 +80,6 @@ Config loadConfig(int argc, char **argv) {
 
 //================================================================
 
-
 //==========================================================================
 int main(int argc, char **argv) {
   LOGI << "Loading configuration." << LEND;
@@ -119,6 +115,7 @@ int main(int argc, char **argv) {
   session->connect();
   // zSession.scout();
   broker.init();
+  broker.connect("serial");
   brokerProxy.init();
   brokerProxy.connect(config["serial"]["port"]);
   // CBOR de-/serialization
@@ -135,40 +132,32 @@ int main(int argc, char **argv) {
                    .get(msgType)
                    .get(msg.topic)
                    .get(msg.payload)
+                   .end()
                    .success() &&
                msgType == B_PUBLISH;
       });
 
-  auto publishSubscribeConnect =
-      new SinkFunction<PubMsg>([&](const PubMsg &msg) {
-        {
-          // TODO extract nodename later
-          broker.publish(msg.topic, msg.payload);
-          if (msg.topic.rfind("src/", 0) == 0) {
-            if (!broker.connected()) {
-              string node = split(msg.topic, '/')[1];
-              broker.connect(node);
-              brokerProxy.subscribe(stringFormat("dst/proxy-%s/*",node.c_str()));
-            }
-            if (dstPrefix.size() == 0 || msg.topic.rfind(srcPrefix, 0) != 0) {
-              INFO(" didn't find subscription %s in %s ", msg.topic.c_str(),
-                   dstPrefix.c_str());
-              vector<string> parts = split(msg.topic, '/');
-              dstPrefix = "dst/";
-              srcPrefix = "src/";
-              dstPrefix += parts[1] + "/";
-              srcPrefix += parts[1] + "/";
-              broker.subscribe(dstPrefix + "*");
-            } else {
-              DEBUG(" found subscription %s", dstPrefix.c_str());
-            }
-          } else {
-            DEBUG(" topic %s doesn't start with src/ ", msg.topic.c_str());
-          }
-        }
+  auto getSubMsg =
+      new LambdaFlow<Bytes, SubMsg>([&](SubMsg &msg, const Bytes &frame) {
+        int msgType;
+        return fromCbor.fromBytes(frame)
+                   .begin()
+                   .get(msgType)
+                   .get(msg.pattern)
+                   .success() &&
+               msgType == B_SUBSCRIBE;
       });
 
-  session->incoming() >> getPubMsg >> publishSubscribeConnect;
+  session->incoming() >> getPubMsg >> [&](const PubMsg &msg) {
+    INFO("PUBLISH %s %s ", msg.topic.c_str(), cborDump(msg.payload).c_str());
+    broker.publish(msg.topic, msg.payload);
+  };
+  session->incoming() >> getSubMsg >>
+      [&](const SubMsg &msg) { broker.subscribe(msg.pattern); };
+
+  /* getPubMsg >> [&](const PubMsg &msg) {
+     INFO("PUBLISH %s %s ", msg.topic, cborDump(msg.payload).c_str());
+   };*/
 
   broker.incoming() >>
       new LambdaFlow<PubMsg, Bytes>([&](Bytes &bs, const PubMsg &msg) {

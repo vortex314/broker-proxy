@@ -602,6 +602,10 @@ public:
     this->subscribe(&flow);
     flow.subscribe(this);
   };
+/*  void operator>>(std::function<void(const OUT &t)> func)
+  {
+    this->subscribe(new SinkFunction<OUT>(func));
+  }*/
 };
 // -------------------------------------------------------- Cache
 template <class T>
@@ -731,6 +735,10 @@ public:
     auto lf = new LambdaFlow(func);
     return *lf;
   }
+  void operator>>(std::function<void(const OUT &t)> func)
+  {
+    subscribe(new SinkFunction<OUT>(func));
+  }
 };
 
 template <class T>
@@ -778,6 +786,39 @@ Source<OUT> &operator>>(Source<IN> &publisher, Flow<IN, OUT> *flow)
   return *flow;
 }
 
+template <class IN, class OUT>
+Sink<IN> &operator>>(Flow<IN, OUT> &flow ,Sink<OUT> &sink )
+{
+  ((Source<OUT>)flow).subscribe(&sink);
+  return flow;
+}
+
+template <class IN, class OUT1,class OUT2>
+Source<OUT2> &operator>>(Flow<IN, OUT1> &flow1 ,Flow<OUT1,OUT2> &flow2 )
+{
+  flow1.subscribe(&flow2);
+  return flow2;
+}
+/*
+template <class IN, class OUT>
+Sink<IN> &operator>>(Flow<IN, OUT> *flow ,Sink<OUT> &sink )
+{
+  flow->subscribe(sink);
+  return *flow;
+}*/
+/*
+template <class IN,class OUT> 
+Sink<IN>& operator>>(Flow<IN,OUT>& flow,std::function<void(const OUT &t)> func){
+  flow.subscribe(new SinkFunction<OUT>(func));
+  return flow;
+}
+
+template <class IN,class OUT> 
+Sink<IN>& operator>>(Flow<IN,OUT>* flow,std::function<void(const OUT &t)> func){
+  flow->subscribe(new SinkFunction<OUT>(func));
+  return *flow;
+}
+*/
 //________________________________________________________________
 //
 template <class T>

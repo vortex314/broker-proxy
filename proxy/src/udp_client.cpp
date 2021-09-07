@@ -5,13 +5,10 @@
 #include <log.h>
 LogS logger;
 const int MsgPublish::TYPE;
-const int MsgPublisher::TYPE;
-const int MsgSubscriber::TYPE;
-const int MsgConnect::TYPE;
-const int MsgDisconnect::TYPE;
+
 
 int main(int argc, char **argv) {
-  Udp udp;
+/*  Udp udp;
   ReflectToCbor toCbor(1024);
 
   udp.port(12001);
@@ -24,5 +21,5 @@ int main(int argc, char **argv) {
   udpMsg.message = msg;
   udp.send(udpMsg);
   LOGI << cborDump(udpMsg.message) << LEND;
-  Sys::delay(1000);
+  Sys::delay(1000);*/
 }

@@ -12,6 +12,11 @@ struct PubMsg
   Bytes payload;
 };
 
+struct SubMsg
+{
+  String pattern;
+};
+
 class BrokerBase : public Actor
 {
   QueueFlow<PubMsg> _incoming;

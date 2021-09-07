@@ -1,10 +1,6 @@
 
 #include "BrokerSerial.h"
-const int MsgPublish::TYPE;
-const int MsgPublisher::TYPE;
-const int MsgSubscriber::TYPE;
-const int MsgConnect::TYPE;
-const int MsgDisconnect::TYPE;
+
 //================================================================
 class MsgFilter : public LambdaFlow<Bytes, Bytes>
 {
@@ -65,7 +61,7 @@ int BrokerSerial::init()
   _loopbackSubscriber = &subscriber<uint64_t>("system/loopback");
   _loopbackPublisher = &publisher<uint64_t>(_loopbackTopic);
 
- /* _fromSerialFrame >> [&](const Bytes &bs)
+  /* _fromSerialFrame >> [&](const Bytes &bs)
   { LOGI << "RXD [" << bs.size() << "] " << cborDump(bs).c_str() << LEND; };
   _toSerialFrame >> [&](const Bytes &bs)
   { LOGI << "TXD [" << bs.size() << "] " << cborDump(bs).c_str() << LEND; };
@@ -77,7 +73,7 @@ int BrokerSerial::init()
 
   _outgoing >> [&](const PubMsg &msg)
   {
-    if (_toCbor.begin().add(MsgPublish::TYPE).add(msg.topic).add(msg.payload).end().success())
+    if (_toCbor.begin().add(B_PUBLISH).add(msg.topic).add(msg.payload).end().success())
       _toSerialFrame.on(_toCbor.toBytes());
   };
 
@@ -99,7 +95,8 @@ int BrokerSerial::init()
 
   _loopbackTimer >> [&](const TimerMsg &tm)
   {
-    _uptimePublisher->on(Sys::millis());
+    if (!connected())
+      subscribe(_dstPrefix + "*");
     _loopbackPublisher->on(Sys::millis());
   };
 
@@ -133,4 +130,11 @@ int BrokerSerial::publish(std::string topic, Bytes &bs)
 {
   _outgoing.on({topic, bs});
   return 0;
+}
+
+int BrokerSerial::subscribe(std::string pattern)
+{
+  if (_toCbor.begin().add(B_SUBSCRIBE).add(pattern).end().success())
+    _toSerialFrame.on(_toCbor.toBytes());
+    return 0;
 }
