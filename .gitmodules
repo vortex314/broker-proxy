@@ -7,3 +7,6 @@
 [submodule "hiredis"]
 	path = hiredis
 	url = https://github.com/redis/hiredis.git
+[submodule "elasticlient"]
+	path = elasticlient
+	url = https://github.com/seznam/elasticlient.git

@@ -111,6 +111,7 @@ int main(int argc, char **argv) {
 #endif
   CborDeserializer fromCbor(1024);
   CborSerializer toCbor(1024);
+  string nodeName;
   session->init();
   session->connect();
   // zSession.scout();
@@ -148,6 +149,17 @@ int main(int argc, char **argv) {
                msgType == B_SUBSCRIBE;
       });
 
+  auto getNodeMsg =
+      new LambdaFlow<Bytes, NodeMsg>([&](NodeMsg &msg, const Bytes &frame) {
+        int msgType;
+        return fromCbor.fromBytes(frame)
+                   .begin()
+                   .get(msgType)
+                   .get(msg.node)
+                   .success() &&
+               msgType == B_NODE;
+      });
+
   session->incoming() >> getPubMsg >> [&](const PubMsg &msg) {
     INFO("PUBLISH %s %s ", msg.topic.c_str(), cborDump(msg.payload).c_str());
     broker.publish(msg.topic, msg.payload);
@@ -155,9 +167,31 @@ int main(int argc, char **argv) {
   session->incoming() >> getSubMsg >>
       [&](const SubMsg &msg) { broker.subscribe(msg.pattern); };
 
+  session->incoming() >> getNodeMsg >> [&](const NodeMsg &msg) {
+    INFO("NODE %s", msg.node.c_str());
+    nodeName = msg.node;
+    std::string topic = "dst/";
+    topic += msg.node;
+    topic += "/*";
+    broker.subscribe(topic);
+  };
+
   /* getPubMsg >> [&](const PubMsg &msg) {
      INFO("PUBLISH %s %s ", msg.topic, cborDump(msg.payload).c_str());
    };*/
+
+  session->logs() >> [&](const Bytes &bs) {
+    static string buffer;
+    for (uint8_t b : bs) {
+      if (b == '\n') {
+        broker.command("XADD logs * node %s message %s ", nodeName.c_str(),
+                       buffer.c_str());
+        buffer.clear();
+      } else {
+        buffer += (char)b;
+      }
+    }
+  };
 
   broker.incoming() >>
       new LambdaFlow<PubMsg, Bytes>([&](Bytes &bs, const PubMsg &msg) {

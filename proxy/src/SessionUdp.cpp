@@ -2,9 +2,9 @@
 #include <ppp_frame.h>
 
 SessionUdp::SessionUdp(Thread &thread, Config config)
-    : SessionAbstract(thread, config), _incomingMessage(10, "_incomingMessage"),
+    : SessionAbstract(thread, config),
+      _incomingMessage(10, "_incomingMessage"),
       _outgoingMessage(10, "_outgoingMessage") {
-
   _errorInvoker = new UdpSessionError(*this);
   _port = config["port"].as<int>();
 }
@@ -17,8 +17,8 @@ bool SessionUdp::init() {
 }
 
 bool SessionUdp::connect() {
-  thread().addReadInvoker(_udp.fd(), [&](int){invoke();});
-  thread().addErrorInvoker(_udp.fd(), [&](int){invoke();});
+  thread().addReadInvoker(_udp.fd(), [&](int) { invoke(); });
+  thread().addErrorInvoker(_udp.fd(), [&](int) { invoke(); });
   return true;
 }
 
@@ -30,7 +30,7 @@ bool SessionUdp::disconnect() {
 // on data incoming on file descriptor
 void SessionUdp::invoke() {
   int rc = _udp.receive(_udpMsg);
-  if (rc == 0) { // read ok
+  if (rc == 0) {  // read ok
     _incomingMessage.on(_udpMsg.message);
   }
 }
@@ -47,3 +47,4 @@ Source<Bytes> &SessionUdp::incoming() { return _incomingMessage; }
 Sink<Bytes> &SessionUdp::outgoing() { return _outgoingMessage; }
 
 Source<bool> &SessionUdp::connected() { return _connected; }
+Source<Bytes> &SessionUdp::logs() { return _logs; }

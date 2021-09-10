@@ -81,8 +81,7 @@ int BrokerRedis::connect(string node) {
   LOGI << "Connecting to Redis " << _hostname << ":" << _port << LEND;
   _subscribeContext = redisConnectWithOptions(&options);
   if (_subscribeContext == NULL || _subscribeContext->err) {
-    LOGW << " Connection " << _hostname << ":" << _port << "  failed."
-         << _subscribeContext->errstr << LEND;
+    INFO(" Connection %s:%d failed",_hostname.c_str(),_port );
     return ENOTCONN;
   }
   _thread.addReadInvoker(_subscribeContext->fd, [&](int) {
@@ -100,12 +99,12 @@ int BrokerRedis::connect(string node) {
     } else {
       INFO(" reply not found ");
       disconnect();
+      connect(_node);
     }
   });
   _publishContext = redisConnectWithOptions(&options);
   if (_publishContext == NULL || _publishContext->err) {
-    LOGW << " Connection " << _hostname << ":" << _port << "  failed."
-         << _publishContext->errstr << LEND;
+    INFO(" Connection %s:%d failed",_hostname.c_str(),_port );
     return ENOTCONN;
   }
   connected = true;
@@ -130,14 +129,13 @@ int BrokerRedis::subscribe(string pattern) {
   if (_subscribers.find(pattern) == _subscribers.end()) {
     SubscriberStruct *sub = new SubscriberStruct({pattern});
     string cmd = stringFormat("PSUBSCRIBE %s", pattern.c_str());
-    INFO(" REDIS context %X cmd %s", _subscribeContext, cmd.c_str());
     redisReply *r = (redisReply *)redisCommand(_subscribeContext, cmd.c_str());
     if (r) {
-      LOGI << cmd << LEND;
+      INFO("%s OK.",cmd.c_str());
       _subscribers.emplace(pattern, sub);
       freeReplyObject(r);
     } else {
-      LOGW << cmd << " failed." << LEND;
+      WARN("%s failed.",cmd.c_str());
     }
   } else {
   }

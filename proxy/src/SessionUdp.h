@@ -17,10 +17,12 @@ class SessionUdp : public SessionAbstract {
   uint64_t _frameTimeout = 2000;
   QueueFlow<Bytes> _incomingMessage;
   QueueFlow<Bytes> _outgoingMessage;
+  ValueFlow<Bytes> _logs;
+
   ValueFlow<bool> _connected;
   UdpMsg _udpMsg;
 
-public:
+ public:
   //  ValueSource<TcpCommand> command;
   SessionUdp(Thread &thread, Config config);
   bool init();
@@ -32,12 +34,13 @@ public:
   Source<Bytes> &incoming();
   Sink<Bytes> &outgoing();
   Source<bool> &connected();
+  Source<Bytes>& logs() ;
 };
 
 class UdpSessionError : public Invoker {
   SessionUdp &_udpSession;
 
-public:
+ public:
   UdpSessionError(SessionUdp &udpSession) : _udpSession(udpSession){};
   void invoke() { _udpSession.onError(); }
 };
