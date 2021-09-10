@@ -63,6 +63,7 @@ set (CMAKE_CXX_STANDARD 11)
 add_executable(redis-proxy)
 
 add_executable(redis-brain)
+add_executable(redis-elastic)
 # add_executable(zenoh-brain)
 
 add_executable(test)
@@ -73,6 +74,8 @@ add_executable(dtr_rts)
 target_compile_options(redis-proxy PRIVATE "-DBROKER_REDIS")
 # target_compile_options(zenoh-proxy PRIVATE "-DBROKER_ZENOH")
 target_compile_options(redis-brain PRIVATE "-DBROKER_REDIS")
+target_compile_options(redis-elastic PRIVATE "-DBROKER_REDIS")
+
 # target_compile_options(zenoh-brain PRIVATE "-DBROKER_ZENOH")
 
 
@@ -129,6 +132,18 @@ ${COMMON}/CborDeserializer.cpp
 src/BrokerRedis.cpp
 ${COMMON}/CborDump.cpp
 src/brain.cpp
+${COMMON}/util.cpp )
+
+
+target_sources(redis-elastic PRIVATE
+src/Sys.cpp
+src/limero.cpp
+src/logger.cpp
+${COMMON}/CborSerializer.cpp
+${COMMON}/CborDeserializer.cpp
+src/BrokerRedis.cpp
+${COMMON}/CborDump.cpp
+src/redis-elastic.cpp
 ${COMMON}/util.cpp )
 
 
@@ -227,6 +242,14 @@ target_link_libraries(redis-brain
 -lpthread  
 -lhiredis
 -lrt  
+-latomic)
+
+target_link_libraries(redis-elastic 
+-L/home/lieven/workspace/tinycbor/lib -l:libtinycbor.a
+-lpthread  
+-lhiredis
+-lrt  
+-lcurl
 -latomic)
 
 target_link_libraries(udp-client 

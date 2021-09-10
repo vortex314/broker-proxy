@@ -17,6 +17,11 @@ struct SubMsg
   String pattern;
 };
 
+struct NodeMsg
+{
+  String node;
+};
+
 class BrokerBase : public Actor
 {
   QueueFlow<PubMsg> _incoming;

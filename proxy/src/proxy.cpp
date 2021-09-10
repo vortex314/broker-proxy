@@ -187,6 +187,7 @@ int main(int argc, char **argv) {
         broker.command("XADD logs * node %s message %s ", nodeName.c_str(),
                        buffer.c_str());
         buffer.clear();
+      } else if (b == '\r') {
       } else {
         buffer += (char)b;
       }

@@ -32,21 +32,23 @@ class BrokerRedis : public BrokerBase {
 
  public:
   ValueFlow<bool> connected;
+  ValueFlow<unordered_map<string,string>> stream;
 
   BrokerRedis(Thread &, Config &);
   int init();
   int connect(string);
   int disconnect();
-  int publish(string , const Bytes &);
+  int publish(string, const Bytes &);
   int onSubscribe(SubscribeCallback);
-  int unSubscribe(string );
-  int subscribe(string );
+  int unSubscribe(string);
+  int subscribe(string);
   bool match(string pattern, string source);
-
+  redisReply* xread(string key);
   int command(const char *format, ...);
   int getId(string);
   int newRedisPublisher(string topic);
   vector<PubMsg> query(string);
+  string replyToString(void* r);
 };
 
 // namespace zenoh

@@ -20,21 +20,37 @@ void BrokerRedis::onMessage(redisContext *c, void *reply, void *me) {
   }
 }
 
-void showReply(void *r) {
+string BrokerRedis::replyToString(void *r) {
   if (r == 0) {
-    LOGI << "reply failed. " << LEND;
+    return "Reply failed ";
   }
   redisReply *reply = (redisReply *)r;
-  if (reply->type == REDIS_REPLY_ARRAY) {
-    for (int j = 0; j < reply->elements; j++) {
-      LOGI << j << ":" << reply->element[j]->str << LEND;
+
+  switch (reply->type) {
+    case REDIS_REPLY_ARRAY: {
+      string result = "[";
+      for (int j = 0; j < reply->elements; j++) {
+        result += replyToString(reply->element[j]);
+        result += ",";
+      }
+      result += "]";
+      return result;
     }
-  } else if (reply->type == REDIS_REPLY_INTEGER) {
-    LOGI << " integer received " << reply->integer << LEND;
-  } else {
-    LOGI << " unexpected reply elements:" << reply->elements
-         << " type:" << reply->type << LEND;
+    case REDIS_REPLY_INTEGER: {
+      return to_string(reply->integer);
+    }
+    case REDIS_REPLY_STRING:
+      return stringFormat("'%s'", reply->str);
+    case REDIS_REPLY_STATUS:
+      return stringFormat("(status) %s", reply->str);
+    case REDIS_REPLY_NIL:
+      return "(nill)";
+    case REDIS_REPLY_ERROR:
+      return stringFormat(" (error) %s", reply->str);
+    default:
+      return stringFormat("unexpected redisReply type : %d", reply->type);
   }
+  return "XXX";
 }
 
 BrokerRedis::BrokerRedis(Thread &thread, Config &cfg)
@@ -81,7 +97,7 @@ int BrokerRedis::connect(string node) {
   LOGI << "Connecting to Redis " << _hostname << ":" << _port << LEND;
   _subscribeContext = redisConnectWithOptions(&options);
   if (_subscribeContext == NULL || _subscribeContext->err) {
-    INFO(" Connection %s:%d failed",_hostname.c_str(),_port );
+    INFO(" Connection %s:%d failed", _hostname.c_str(), _port);
     return ENOTCONN;
   }
   _thread.addReadInvoker(_subscribeContext->fd, [&](int) {
@@ -104,7 +120,7 @@ int BrokerRedis::connect(string node) {
   });
   _publishContext = redisConnectWithOptions(&options);
   if (_publishContext == NULL || _publishContext->err) {
-    INFO(" Connection %s:%d failed",_hostname.c_str(),_port );
+    INFO(" Connection %s:%d failed", _hostname.c_str(), _port);
     return ENOTCONN;
   }
   connected = true;
@@ -131,11 +147,11 @@ int BrokerRedis::subscribe(string pattern) {
     string cmd = stringFormat("PSUBSCRIBE %s", pattern.c_str());
     redisReply *r = (redisReply *)redisCommand(_subscribeContext, cmd.c_str());
     if (r) {
-      INFO("%s OK.",cmd.c_str());
+      INFO("%s OK.", cmd.c_str());
       _subscribers.emplace(pattern, sub);
       freeReplyObject(r);
     } else {
-      WARN("%s failed.",cmd.c_str());
+      WARN("%s failed.", cmd.c_str());
     }
   } else {
   }
@@ -163,6 +179,8 @@ int BrokerRedis::publish(string topic, const Bytes &bs) {
       _publishContext, "PUBLISH %s %b", topic.c_str(), bs.data(), bs.size());
   if (r == 0) {
     LOGW << "Redis PUBLISH failed " << topic << LEND;
+    disconnect();
+    connect(_node);
   } else {
     // showReply(r);
     freeReplyObject(r);
@@ -190,6 +208,8 @@ int BrokerRedis::command(const char *format, ...) {
     return 0;
   }
   LOGW << "command : " << format << " failed " << LEND;
+  disconnect();
+  connect(_node);
   return EINVAL;
 }
 
@@ -197,4 +217,10 @@ int BrokerRedis::command(const char *format, ...) {
 bool BrokerRedis::match(string pattern, string topic) {
   std::regex patternRegex(pattern);
   return std::regex_match(topic, patternRegex);
+}
+
+redisReply *BrokerRedis::xread(string key) {
+  if (!connected()) return 0;
+  return (redisReply *)redisCommand(_publishContext,
+                                    "XREAD BLOCK 0 STREAMS %s $", key.c_str());
 }

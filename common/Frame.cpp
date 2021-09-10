@@ -7,11 +7,14 @@ BytesToFrame::BytesToFrame() : Flow<Bytes, Bytes>() {}
 
 void BytesToFrame::on(const Bytes &bs) { handleRxd(bs); }
 
-void BytesToFrame::toStdout(const Bytes &bs) {
-  if (bs.size() > 1) {
+void BytesToFrame::toStdout(const Bytes &bs)
+{
+  if (bs.size() > 1)
+  {
 #ifdef ARDUINO
-    Serial.write(bs.data(),bs.size());
+    Serial.write(bs.data(), bs.size());
 #else
+    logs.on(bs);
     ::write(1, ColorOrange, strlen(ColorOrange));
     ::write(1, bs.data(), bs.size());
     ::write(1, ColorDefault, strlen(ColorDefault));
@@ -20,28 +23,39 @@ void BytesToFrame::toStdout(const Bytes &bs) {
   }
 }
 
-bool BytesToFrame::handleFrame(const Bytes &bs) {
-  if (bs.size() == 0) return false;
-  if (ppp_deframe(_cleanData, bs)) {
+bool BytesToFrame::handleFrame(const Bytes &bs)
+{
+  if (bs.size() == 0)
+    return false;
+  if (ppp_deframe(_cleanData, bs))
+  {
     emit(_cleanData);
     return true;
-  } else {
+  }
+  else
+  {
     toStdout(bs);
     return false;
   }
 }
 
-void BytesToFrame::handleRxd(const Bytes &bs) {
-  for (uint8_t b : bs) {
-    if (b == PPP_FLAG_CHAR) {
+void BytesToFrame::handleRxd(const Bytes &bs)
+{
+  for (uint8_t b : bs)
+  {
+    if (b == PPP_FLAG_CHAR)
+    {
       _lastFrameFlag = Sys::millis();
       handleFrame(_inputFrame);
       _inputFrame.clear();
-    } else {
+    }
+    else
+    {
       _inputFrame.push_back(b);
     }
   }
-  if ((Sys::millis() - _lastFrameFlag) > _frameTimeout) {
+  if ((Sys::millis() - _lastFrameFlag) > _frameTimeout)
+  {
     //   cout << " skip  Bytes " << hexDump(bs) << endl;
     //   cout << " frame data drop " << hexDump(frameData) << flush;
     toStdout(bs);
@@ -51,7 +65,8 @@ void BytesToFrame::handleRxd(const Bytes &bs) {
 void BytesToFrame::request(){};
 
 FrameToBytes::FrameToBytes()
-    : LambdaFlow<Bytes, Bytes>([&](Bytes &out, const Bytes &in) {
-        out = ppp_frame(in);
-        return true;
-      }){};
+    : LambdaFlow<Bytes, Bytes>([&](Bytes &out, const Bytes &in)
+                               {
+                                 out = ppp_frame(in);
+                                 return true;
+                               }){};

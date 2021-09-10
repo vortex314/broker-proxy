@@ -12,6 +12,7 @@ class BytesToFrame : public Flow<Bytes, Bytes>
   uint32_t _frameTimeout = 1000;
 
 public:
+  ValueFlow<Bytes> logs;
   BytesToFrame();
   void on(const Bytes &bs);
   void toStdout(const Bytes &bs);

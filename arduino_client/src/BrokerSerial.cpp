@@ -96,7 +96,7 @@ int BrokerSerial::init()
   _loopbackTimer >> [&](const TimerMsg &tm)
   {
     if (!connected())
-      subscribe(_dstPrefix + "*");
+      sendNode(Sys::hostname());
     _loopbackPublisher->on(Sys::millis());
   };
 
@@ -135,6 +135,12 @@ int BrokerSerial::publish(std::string topic, Bytes &bs)
 int BrokerSerial::subscribe(std::string pattern)
 {
   if (_toCbor.begin().add(B_SUBSCRIBE).add(pattern).end().success())
+    _toSerialFrame.on(_toCbor.toBytes());
+    return 0;
+}
+
+int BrokerSerial::sendNode(std::string nodeName){
+  if (_toCbor.begin().add(B_NODE).add(nodeName).end().success())
     _toSerialFrame.on(_toCbor.toBytes());
     return 0;
 }
