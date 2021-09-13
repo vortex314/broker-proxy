@@ -3,6 +3,9 @@
 A generic PubSub communication protocol that enables small microcontrollers to be part of a bigger robot structure. uC considered are 256KB flash, 32KB RAM ( STM32F103 ).
 The protocol should be able to be passed across serial, USB . Primary intention is to use this via USB CDC and UDP
 
+# Components used
+ ![Components](docs/components.png)
+
 # Roadmap
 
 - implement CBOR serialization for protocol messages : Pub,Sub,..

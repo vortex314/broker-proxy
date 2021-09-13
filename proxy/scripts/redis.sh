@@ -1,1 +1,1 @@
-docker run --name=redis --net=host redislabs/redistimeseries
+docker run -d --name=redis --net=host redislabs/redistimeseries

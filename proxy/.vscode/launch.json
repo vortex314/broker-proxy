@@ -11,11 +11,9 @@
             "name": "g++ - Build and debug active file",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/build/redis-elastic",
+            "program": "${workspaceFolder}/build/dtr_rts",
             "args": [
-                "-s",
-                "/dev/ttyUSB0",
-                "-b",
+                "/dev/ttyUSB1",
                 "921600"
             ],
             "stopAtEntry": false,
