@@ -4,7 +4,7 @@ A generic PubSub communication protocol that enables small microcontrollers to b
 The protocol should be able to be passed across serial, USB . Primary intention is to use this via USB CDC and UDP
 
 # Components used
- ![Components](docs/components.png)
+ ![Products](docs/products.png)
 
 # Roadmap
 
