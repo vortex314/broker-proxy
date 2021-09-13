@@ -5,6 +5,8 @@ The protocol should be able to be passed across serial, USB . Primary intention 
 
 # Components used
  ![Products](docs/products.png)
+ # Integration 
+ ![Software](docs/SoftwareComponents.png)
 
 # Roadmap
 

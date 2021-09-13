@@ -41,6 +41,7 @@ class SessionSerial : public SessionAbstract {
   Sink<Bytes> &outgoing();
   Source<bool> &connected();
   Source<Bytes> &logs();
+  string port();
 };
 
 class SerialSessionError : public Invoker {

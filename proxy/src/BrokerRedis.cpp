@@ -184,7 +184,7 @@ int BrokerRedis::publish(string topic, const Bytes &bs) {
   } else {
     // showReply(r);
     freeReplyObject(r);
-    LOGI << "Redis PUBLISH " << topic << ":" << cborDump(bs) << LEND;
+    LOGI << "Redis PUBLISH " << topic << ": [" << bs.size() <<"]" << LEND;
   }
   return 0;
 }

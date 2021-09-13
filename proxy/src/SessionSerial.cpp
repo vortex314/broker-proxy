@@ -66,3 +66,5 @@ Sink<Bytes> &SessionSerial::outgoing() { return _outgoingMessage; }
 Source<bool> &SessionSerial::connected() { return _connected; }
 
 Source<Bytes>& SessionSerial::logs() { return _logs; }
+
+string SessionSerial::port() { return _port; }

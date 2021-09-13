@@ -69,7 +69,7 @@ add_executable(redis-elastic)
 add_executable(test)
 add_executable(redis-test)
 add_executable(udp-client)
-add_executable(dtr_rts)
+add_executable(proxy-cli)
 
 target_compile_options(redis-proxy PRIVATE "-DBROKER_REDIS")
 # target_compile_options(zenoh-proxy PRIVATE "-DBROKER_ZENOH")
@@ -79,11 +79,7 @@ target_compile_options(redis-elastic PRIVATE "-DBROKER_REDIS")
 # target_compile_options(zenoh-brain PRIVATE "-DBROKER_ZENOH")
 
 
-target_sources(dtr_rts PRIVATE 
-  src/DtrRts.cpp
-  src/logger.cpp
-  src/Sys.cpp
- )
+
 
 target_sources(test PRIVATE 
   src/limero.cpp
@@ -107,6 +103,24 @@ target_sources(test PRIVATE
 
   target_sources(redis-proxy PRIVATE 
   src/proxy.cpp 
+  src/config.cpp 
+  src/SessionSerial.cpp
+  src/serial.cpp 
+  src/SessionUdp.cpp
+  src/Udp.cpp 
+  src/BrokerRedis.cpp
+  src/logger.cpp
+  src/Sys.cpp
+  src/limero.cpp
+  ${COMMON}/ppp_frame.cpp 
+  ${COMMON}/CborSerializer.cpp
+  ${COMMON}/CborDeserializer.cpp
+  ${COMMON}/CborDump.cpp
+  ${COMMON}/Frame.cpp
+  ${COMMON}/util.cpp ) 
+
+  target_sources(proxy-cli PRIVATE 
+  src/proxyCli.cpp 
   src/config.cpp 
   src/SessionSerial.cpp
   src/serial.cpp 
@@ -165,7 +179,20 @@ target_link_libraries(redis-proxy
 -lhiredis
 -lrt  
 -latomic)
+
+target_link_libraries(proxy-cli 
+-L/home/lieven/workspace/tinycbor/lib -l:libtinycbor.a
+-lpthread  
+-lhiredis
+-lrt  
+-latomic)
 #[[
+target_sources(dtr_rts PRIVATE 
+  src/DtrRts.cpp
+  src/logger.cpp
+  src/Sys.cpp
+ )
+ 
 target_sources(zenoh-proxy PRIVATE 
   src/proxy.cpp 
   src/config.cpp 
@@ -208,6 +235,11 @@ target_link_libraries(zenoh-brain
 -lpthread  
 -lrt  
 -latomic)
+
+target_link_libraries(dtr_rts 
+-lpthread  
+-lrt  
+-latomic)
 ]]
 
 target_link_libraries(redis-test 
@@ -218,10 +250,7 @@ gtest_main
 -lrt  
 -latomic)
 
-target_link_libraries(dtr_rts 
--lpthread  
--lrt  
--latomic)
+
 
 target_link_libraries(test 
 -L/home/lieven/workspace/tinycbor/lib -l:libtinycbor.a

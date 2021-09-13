@@ -11,7 +11,7 @@
             "name": "g++ - Build and debug active file",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/build/dtr_rts",
+            "program": "${workspaceFolder}/build/proxy-cli",
             "args": [
                 "/dev/ttyUSB1",
                 "921600"

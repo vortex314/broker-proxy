@@ -78,6 +78,52 @@ Config loadConfig(int argc, char **argv) {
   return cfg;
 };
 
+bool writeBytesToFile(string fileName, const Bytes &data) {
+  ofstream wf(fileName, ios::out | ios::binary);
+  if (!wf) {
+    WARN("Cannot open file : '%s' !", fileName.c_str());
+    return false;
+  }
+  wf.write((char *)data.data(), data.size());
+  if (!wf.good()) {
+    WARN("Error occurred at writing time!: '%s' !", fileName.c_str());
+    wf.close();
+    return false;
+  }
+  wf.close();
+  return wf.good();
+}
+
+bool flashFileToDevice(string fileName, string port, uint32_t baudrate) {
+  INFO("  esptool.py --port %s write_flash 0x0000 %s --baud %u ", port,
+       fileName, baudrate);
+  string python = "/home/lieven/.platformio/penv/bin/python";
+  string esptool =
+      "/home/lieven/.platformio/packages/tool-esptoolpy/esptool.py";
+  string bootloader =
+      "/home/lieven/.platformio/packages/framework-arduinoespressif32/tools/"
+      "sdk/bin/bootloader_dio_40m.bin";
+  string partitions =
+      "/home/lieven/workspace/broker-proxy/arduino_client/.pio/build/"
+      "nodemcu-32s/partitions.bin";
+  string boot_app0 =
+      "/home/lieven/.platformio/packages/framework-arduinoespressif32/tools/"
+      "partitions/boot_app0.bin";
+  string firmware = ".pio/build/nodemcu-32s/firmware.bin";
+  string command = stringFormat(
+      "%s %s --chip esp32 --port %s --baud %u "
+      " --before default_reset --after hard_reset write_flash -z "
+      " --flash_mode dio --flash_freq 40m --flash_size detect "
+      " 0x1000 %s "
+      " 0x8000 %s "
+      " 0xe000 %s "
+      " 0x10000 %s",
+      python, esptool, port, baudrate, bootloader, partitions, boot_app0,
+      firmware);
+
+  return true;
+}
+
 //================================================================
 
 //==========================================================================
@@ -99,19 +145,13 @@ int main(int argc, char **argv) {
     fatal(" no interface specified.");
   Config brokerConfig = config["broker"];
 
-#ifdef BROKER_ZENOH
-  INFO(" Launching Zenoh");
-  BrokerZenoh broker(workerThread, brokerConfig);
-  BrokerZenoh brokerProxy(workerThread, brokerConfig);
-#endif
-#ifdef BROKER_REDIS
   INFO(" Launching Redis");
   BrokerRedis broker(workerThread, brokerConfig);
   BrokerRedis brokerProxy(workerThread, brokerConfig);
-#endif
   CborDeserializer fromCbor(1024);
   CborSerializer toCbor(1024);
   string nodeName;
+  string portName = config["serial"]["port"];
   session->init();
   session->connect();
   // zSession.scout();
@@ -174,6 +214,10 @@ int main(int argc, char **argv) {
     topic += msg.node;
     topic += "/*";
     broker.subscribe(topic);
+    topic = "dst/";
+    topic += msg.node;
+    topic += "-proxy/*";
+    brokerProxy.subscribe(topic);
   };
 
   /* getPubMsg >> [&](const PubMsg &msg) {
@@ -187,7 +231,7 @@ int main(int argc, char **argv) {
         broker.command("XADD logs * node %s message %s ", nodeName.c_str(),
                        buffer.c_str());
         buffer.clear();
-      } else if (b == '\r') {
+      } else if (b == '\r') {  // drop
       } else {
         buffer += (char)b;
       }
@@ -205,6 +249,17 @@ int main(int argc, char **argv) {
         return toCbor.success();
       }) >>
       session->outgoing();
+
+  brokerProxy.incoming() >> [&](const PubMsg &msg) {
+    string dstPrefix = stringFormat("dst/%s-proxy/", nodeName.c_str());
+    if (msg.topic == (dstPrefix + "prog/flash")) {
+      INFO(" received flash image : %d bytes ", msg.payload.size());
+      session->disconnect();
+      if (writeBytesToFile("image.bin", msg.payload)) {
+        flashFileToDevice("image.bin", portName, 921600);
+      }
+    }
+  };
 
   workerThread.run();
   delete session;

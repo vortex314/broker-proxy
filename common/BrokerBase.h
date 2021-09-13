@@ -37,7 +37,7 @@ class BrokerBase : public Actor
 public:
   BrokerBase(Thread &thr, Config &)
       : Actor(thr), _incoming(10, "incoming"), _outgoing(10, "outgoing"),
-        _toCbor(256), _fromCbor(256){};
+        _toCbor(1000000), _fromCbor(1000000){};
   virtual int init() = 0;
   virtual int connect(String) = 0;
   virtual int disconnect() = 0;
