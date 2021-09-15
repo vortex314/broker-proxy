@@ -32,12 +32,12 @@ Config loadConfig(int argc, char **argv) {
   cfg["broker"]["port"] = 6379;
   // override args
   int c;
-  while ((c = getopt(argc, argv, "h:p:s:b:")) != -1) switch (c) {
-      case 'b':
-        cfg["serial"]["baudrate"] = atoi(optarg);
+  while ((c = getopt(argc, argv, "f:e:h:p:")) != -1) switch (c) {
+      case 'f':
+        cfg["elastic"]["port"] = atoi(optarg);
         break;
-      case 's':
-        cfg["serial"]["port"] = optarg;
+      case 'e':
+        cfg["elastic"]["host"] = optarg;
         break;
       case 'h':
         cfg["broker"]["host"] = optarg;
@@ -69,14 +69,17 @@ class ElasticIndex : public Actor {
   CURL *curl;
   CURLcode res;
   struct curl_slist *headers = NULL;
-  string _url;
+  string _url, _host;
+  uint16_t _port;
 
  public:
-  ElasticIndex(Thread &thread, string name)
+  ElasticIndex(Thread &thread, Config config, string name)
       : Actor(thread), _index(name), _putIndex(20) {
     _putIndex.async(thread);
-    _url = "http://localhost:9200/";
-    _url += _index + "/log?pipeline=add-timestamp";
+    _host = config["host"] | "localhost";
+    _port = config["port"] | 9200;
+    _url = stringFormat("http://%s:%d/%s/log?pipeline=add-timestamp",
+                        _host.c_str(), _port, _index.c_str());
   };
   void init() {
     headers = curl_slist_append(headers, "Content-Type: application/json");
@@ -132,20 +135,19 @@ int main(int argc, char **argv) {
   Config config = loadConfig(argc, argv);
   Thread workerThread("worker");
   Thread elasticThread("elastic");
-  Config brokerConfig = config["broker"];
-  ElasticIndex elastic(elasticThread, "logs");
-  ElasticIndex metrics(elasticThread, "metrics");
+
+  ElasticIndex indexLogs(elasticThread, config["elastic"], "logs");
+  ElasticIndex indexMetrics(elasticThread, config["elastic"], "metrics");
+  BrokerRedis broker(workerThread, config["broker"]);
+
   TimerSource pubTimer(workerThread, 2000, true, "pubTimer");
   CborSerializer cborSerializer(1024);
   CborDeserializer cborDeserializer(1024);
   TimerSource ticker(workerThread, 3000, true, "ticker");
-  StaticJsonDocument<10240> jsonDoc;
-  JsonObject json;
 
-  BrokerRedis broker(workerThread, brokerConfig);
   broker.init();
-  elastic.init();
-  metrics.init();
+  indexLogs.init();
+  indexMetrics.init();
   int rc = broker.connect("brain");
   broker.subscribe("*");
   broker.incoming() >> [&](const PubMsg &msg) {
@@ -172,7 +174,7 @@ int main(int argc, char **argv) {
     }
     serializeJson(jsonDoc, request);
     INFO("request :%s", request.c_str());
-    metrics.putIndex().on(request);
+    indexMetrics.putIndex().on(request);
     jsonDoc.clear();
   };
   TimeoutFlow<uint64_t> fl(workerThread, 2000);
@@ -180,6 +182,8 @@ int main(int argc, char **argv) {
   workerThread.start();
   elasticThread.start();
 
+  StaticJsonDocument<10240> jsonDoc;
+  JsonObject json;
   while (true) {
     redisReply *reply;
     reply = broker.xread("logs");
@@ -200,7 +204,7 @@ int main(int argc, char **argv) {
             string request;
             serializeJson(jsonDoc, request);
             INFO("request :%s", request.c_str());
-            elastic.putIndex().on(request);
+            indexLogs.putIndex().on(request);
             jsonDoc.clear();
           }
         }
@@ -209,4 +213,6 @@ int main(int argc, char **argv) {
   };
 
   broker.disconnect();
+  indexLogs.deInit();
+  indexMetrics.deInit();
 }

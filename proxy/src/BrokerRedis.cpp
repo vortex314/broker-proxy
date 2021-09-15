@@ -53,7 +53,7 @@ string BrokerRedis::replyToString(void *r) {
   return "XXX";
 }
 
-BrokerRedis::BrokerRedis(Thread &thread, Config &cfg)
+BrokerRedis::BrokerRedis(Thread &thread, Config cfg)
     : BrokerBase(thread, cfg),
       _thread(thread),
       _reconnectTimer(thread, 3000, true, "reconnectTimer") {

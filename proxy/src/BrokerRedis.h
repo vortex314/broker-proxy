@@ -34,7 +34,7 @@ class BrokerRedis : public BrokerBase {
   ValueFlow<bool> connected;
   ValueFlow<unordered_map<string,string>> stream;
 
-  BrokerRedis(Thread &, Config &);
+  BrokerRedis(Thread &, Config );
   int init();
   int connect(string);
   int disconnect();
