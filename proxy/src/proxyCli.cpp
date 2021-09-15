@@ -26,21 +26,12 @@ Config loadConfig(JsonDocument &doc, int argc, char **argv) {
   cfg["broker"]["port"] = 6379;
   // override args
   int c;
-  while ((c = getopt(argc, argv, "h:p:s:b:f:")) != -1) switch (c) {
-      case 'b':
-        cfg["serial"]["baudrate"] = atoi(optarg);
-        break;
-      case 's':
-        cfg["serial"]["port"] = optarg;
-        break;
-      case 'h':
-        cfg["broker"]["host"] = optarg;
-        break;
-      case 'p':
-        cfg["broker"]["port"] = atoi(optarg);
-        break;
+  while ((c = getopt(argc, argv, "n:f:")) != -1) switch (c) {
       case 'f':
         cfg["file"] = atoi(optarg);
+        break;
+      case 'n':
+        cfg["node"] = atoi(optarg);
         break;
       case '?':
         printf("Usage %s -h <host> -p <port> -s <serial_port> -b <baudrate>\n",
@@ -64,9 +55,9 @@ bool readBytesFromFile(Bytes &bin, string fileName) {
     WARN("Cannot open file : '%s' !", fileName.c_str());
     return false;
   }
-  rf.seekg(0,rf.end);
+  rf.seekg(0, rf.end);
   uint32_t size = rf.tellg();
-  rf.seekg(0,rf.beg);
+  rf.seekg(0, rf.beg);
   bin.resize(size);
   rf.read((char *)bin.data(), size);
   rf.close();
@@ -84,10 +75,17 @@ int main(int argc, char **argv) {
   BrokerRedis broker(workerThread, brokerConfig);
   CborDeserializer fromCbor(10000000);
   CborSerializer toCbor(10000000);
-  ticker >> [&](const TimerMsg &) {
+
+  string fileName = config["file"] | "firmware.bin";
+  string node = config["node"] | "esp32";
+  string flashTopic = stringFormat("dst/%s-proxy/prog/flash", node.c_str());
+
+  broker.connected >> [&](const bool &) {
     Bytes binary;
-    if (readBytesFromFile(binary, "build/firmware.bin"))
-      broker.publish("dst/esp32-proxy/prog/flash", toCbor.begin().add(binary).end().toBytes());
+    if (readBytesFromFile(binary, fileName))
+      broker.publish(flashTopic, toCbor.begin().add(binary).end().toBytes());
+      broker.disconnect();
+      exit(0);
   };
   workerThread.run();
 }

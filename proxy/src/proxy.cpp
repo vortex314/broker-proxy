@@ -94,9 +94,31 @@ bool writeBytesToFile(string fileName, const Bytes &data) {
   return wf.good();
 }
 
-bool flashFileToDevice(string fileName, string port, uint32_t baudrate) {
-  INFO("  esptool.py --port %s write_flash 0x0000 %s --baud %u ", port,
-       fileName, baudrate);
+bool flashFileToDevice(Sink<Bytes>& logStream,string fileName, string port, uint32_t baudrate) {
+  string cmd= "ls -l  ";
+  char buffer[128];
+  FILE *pipe = popen(cmd.c_str(), "r");
+  if (!pipe) {
+    WARN("popen() failed :  %s  ", strerror(errno));
+    return false;
+  }
+  try {
+    while (fgets(buffer, sizeof buffer, pipe) != NULL) {
+      INFO("LOG ===> %s ",buffer);
+      Bytes bs((uint8_t)*buffer,(uint8_t)*buffer+strlen(buffer));
+      logStream.on(bs);
+    }
+  } catch (...) {
+    pclose(pipe);
+    return false;
+  }
+  pclose(pipe);
+  return true;
+}
+
+bool flashFileToDevice2(string fileName, string port, uint32_t baudrate) {
+  INFO("  esptool.py --port %s write_flash 0x0000 %s --baud %u ", port.c_str(),
+       fileName.c_str(), baudrate);
   string python = "/home/lieven/.platformio/penv/bin/python";
   string esptool =
       "/home/lieven/.platformio/packages/tool-esptoolpy/esptool.py";
@@ -224,7 +246,7 @@ int main(int argc, char **argv) {
      INFO("PUBLISH %s %s ", msg.topic, cborDump(msg.payload).c_str());
    };*/
 
-  session->logs() >> [&](const Bytes &bs) {
+  SinkFunction<Bytes> redisLogStream([&](const Bytes &bs) {
     static string buffer;
     for (uint8_t b : bs) {
       if (b == '\n') {
@@ -236,7 +258,9 @@ int main(int argc, char **argv) {
         buffer += (char)b;
       }
     }
-  };
+  });
+
+  session->logs() >> redisLogStream;
 
   broker.incoming() >>
       new LambdaFlow<PubMsg, Bytes>([&](Bytes &bs, const PubMsg &msg) {
@@ -256,8 +280,9 @@ int main(int argc, char **argv) {
       INFO(" received flash image : %d bytes ", msg.payload.size());
       session->disconnect();
       if (writeBytesToFile("image.bin", msg.payload)) {
-        flashFileToDevice("image.bin", portName, 921600);
+        flashFileToDevice(redisLogStream,"image.bin", portName, 921600);
       }
+      session->connect();
     }
   };
 

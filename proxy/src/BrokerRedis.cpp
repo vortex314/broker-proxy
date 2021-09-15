@@ -69,7 +69,10 @@ BrokerRedis::BrokerRedis(Thread &thread, Config &cfg)
     if (!connected()) connect("");
   };
   _incoming >> [&](const PubMsg &msg) {
-    INFO("Redis RXD %s %s ", msg.topic.c_str(), cborDump(msg.payload).c_str());
+    INFO("Redis RXD %s %s ", msg.topic.c_str(),
+         msg.payload.size() < 100
+             ? cborDump(msg.payload).c_str()
+             : stringFormat("[%d]", msg.payload.size()).c_str());
   };
 }
 
@@ -184,7 +187,7 @@ int BrokerRedis::publish(string topic, const Bytes &bs) {
   } else {
     // showReply(r);
     freeReplyObject(r);
-    LOGI << "Redis PUBLISH " << topic << ": [" << bs.size() <<"]" << LEND;
+    LOGI << "Redis PUBLISH " << topic << ": [" << bs.size() << "]" << LEND;
   }
   return 0;
 }

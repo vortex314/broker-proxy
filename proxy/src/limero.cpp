@@ -29,14 +29,12 @@ void Thread::buildFdSet() {
   for (const auto &myPair : _readInvokers) {
     int fd = myPair.first;
     FD_SET(fd, &_rfds);
-    if (fd > _maxFd)
-      _maxFd = fd;
+    if (fd > _maxFd) _maxFd = fd;
   }
   for (const auto &myPair : _errorInvokers) {
     int fd = myPair.first;
     FD_SET(fd, &_efds);
-    if (fd > _maxFd)
-      _maxFd = fd;
+    if (fd > _maxFd) _maxFd = fd;
   }
   _maxFd += 1;
 }
@@ -52,8 +50,8 @@ void Thread::addErrorInvoker(int fd, std::function<void(int)> f) {
 }
 
 void Thread::deleteInvoker(int fd) {
-  _readInvokers.erase(fd);
-  _errorInvokers.erase(fd);
+  if (_readInvokers.find(fd) != _readInvokers.end()) _readInvokers.erase(fd);
+  if (_errorInvokers.find(fd) != _errorInvokers.end()) _errorInvokers.erase(fd);
   buildFdSet();
 }
 
@@ -72,23 +70,21 @@ int Thread::waitInvoker(uint32_t timeout) {
   if (rc < 0) {
     WARN(" select() : error : %s (%d)", strerror(errno), errno);
     return rc;
-  } else if (rc > 0) { // one of the fd was set
+  } else if (rc > 0) {  // one of the fd was set
 
     if (FD_ISSET(_readPipe, &rfds)) {
-      ::read(_readPipe, &invoker, sizeof(Invoker *)); // read 1 event
+      ::read(_readPipe, &invoker, sizeof(Invoker *));  // read 1 event
       invoker->invoke();
     }
     for (const auto &myPair : _readInvokers) {
       int fd = myPair.first;
-      if (FD_ISSET(fd, &rfds))
-        if (_readInvokers.find(fd) != _readInvokers.end())
-          _readInvokers.find(fd)->second(fd);
+      std::function<void(int)> f = myPair.second;
+      if (FD_ISSET(fd, &rfds)) f(fd);
     }
     for (const auto &myPair : _errorInvokers) {
       int fd = myPair.first;
-      if (FD_ISSET(fd, &efds))
-      if (_errorInvokers.find(fd) != _errorInvokers.end())
-        _errorInvokers.find(fd)->second(fd);
+      std::function<void(int)> f = myPair.second;
+      if (FD_ISSET(fd, &efds)) f(fd);
     }
     if (FD_ISSET(_readPipe, &efds)) {
       WARN("pipe  error : %s (%d)", strerror(errno), errno);
@@ -102,24 +98,19 @@ int Thread::waitInvoker(uint32_t timeout) {
   return ECOMM;
 }
 
-Thread::Thread(const char *name) : Named(name) {
-  createQueue();
-}
+Thread::Thread(const char *name) : Named(name) { createQueue(); }
 
 void Thread::createQueue() {
   int rc = pipe(_pipeFd);
   _writePipe = _pipeFd[1];
   _readPipe = _pipeFd[0];
-  if (rc < 0)
-    WARN("Queue creation failed %d %s ", errno, strerror(errno));
+  if (rc < 0) WARN("Queue creation failed %d %s ", errno, strerror(errno));
   if (fcntl(_writePipe, F_SETFL, O_NONBLOCK) < 0) {
     WARN("Failed to set pipe blocking mode: %s (%d)", strerror(errno), errno);
   }
 }
 
-void Thread::addTimer(TimerSource *ts) {
-  _timers.push_back(ts);
-}
+void Thread::addTimer(TimerSource *ts) { _timers.push_back(ts); }
 
 void SetThreadName(std::thread *thread, const char *threadName) {
   auto handle = thread->native_handle();

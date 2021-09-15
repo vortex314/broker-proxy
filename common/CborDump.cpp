@@ -1,14 +1,14 @@
 #include "CborDump.h"
-static etl::string<256> str;
-static etl::string_stream ss(str);
+static etl::string<1024> streamBuffer;
+static etl::string_stream ss(streamBuffer);
 std::string cborDump(const Bytes &bs)
 {
-  str.clear();
+  streamBuffer.clear();
   CborValue it;
   CborParser rootParser;
   cbor_parser_init(bs.data(), bs.size(), 0, &rootParser, &it);
   dumpCborRecursive(ss, &it, 0);
-  return std::string(str.c_str());
+  return std::string(streamBuffer.c_str());
 }
 /**
  * Decode CBOR data manuallly

@@ -11,9 +11,12 @@
             "name": "g++ - Build and debug active file",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/build/proxy-cli",
+            "program": "${workspaceFolder}/build/redis-proxy",
             "args": [
-                "/dev/ttyUSB1",
+                "serial",
+                "-s",
+                "/dev/ttyUSB0",
+                "-b",
                 "921600"
             ],
             "stopAtEntry": false,

@@ -55,7 +55,10 @@ void SessionSerial::invoke() {
   }
 }
 // on error issue onf ile descriptor
-void SessionSerial::onError() { disconnect(); }
+void SessionSerial::onError() {
+  INFO(" error occured on serial ,disconnecting ");
+  disconnect();
+}
 
 int SessionSerial::fd() { return _serialPort.fd(); }
 
@@ -65,6 +68,6 @@ Sink<Bytes> &SessionSerial::outgoing() { return _outgoingMessage; }
 
 Source<bool> &SessionSerial::connected() { return _connected; }
 
-Source<Bytes>& SessionSerial::logs() { return _logs; }
+Source<Bytes> &SessionSerial::logs() { return _logs; }
 
 string SessionSerial::port() { return _port; }
