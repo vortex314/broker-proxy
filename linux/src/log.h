@@ -20,10 +20,7 @@ static constexpr cstr past_last_slash(cstr str) {
 }
 #ifndef __SHORT_FILE__
 #define __SHORT_FILE__                              \
-  ({                                                \
-    constexpr cstr sf__{past_last_slash(__FILE__)}; \
-    sf__;                                           \
-  })
+    past_last_slash(__FILE__) 
 #endif
 #include <sstream>
 String stringFormat(const char *fmt, ...);

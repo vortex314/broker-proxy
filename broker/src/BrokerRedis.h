@@ -1,5 +1,5 @@
-#ifndef _ZENOH_SESSION_H_
-#define _ZENOH_SESSION_H_
+#ifndef _BROKER_REDIS_H_
+#define _BROKER_DREDIS_H_
 #include <async.h>
 #include <hiredis.h>
 #include <log.h>

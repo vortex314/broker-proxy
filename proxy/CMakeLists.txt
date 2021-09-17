@@ -4,6 +4,11 @@ project(spine)
 include(GNUInstallDirs)
 
 set(CMAKE_CXX_STANDARD 11)
+find_package(iceoryx_posh CONFIG REQUIRED)
+find_package(iceoryx_hoofs CONFIG REQUIRED)
+
+get_target_property(ICEORYX_CXX_STANDARD iceoryx_posh::iceoryx_posh CXX_STANDARD)
+include(IceoryxPlatform)
 
 include(FetchContent)
 FetchContent_Declare(
@@ -35,7 +40,8 @@ add_definitions(-DZENOH_LINUX -DZENOH_TRANSPORT_UDP_IP -DZENOH_DEBUG=1 -DLINUX -
 
 # set(ZENOHC /home/lieven/workspace/zenoh-c)
 set(HIREDIS ../hiredis )
-set(LIMERO /home/lieven/workspace/limero )
+# set(LIMERO /home/lieven/workspace/limero )
+set(BROKER ../broker)
 set(TINYCBOR ../tinycbor )
 set(ETL ../etl )
 set(COMMON ../common )
@@ -49,6 +55,7 @@ include_directories(
   ${TINYCBOR}/src
   ${ETL}/include
   ${HIREDIS}
+  ${BROKER}
 /home/lieven/workspace/ArduinoJson/src )
 
 add_definitions(-DCATCH_CONFIG_DISABLE)
@@ -63,6 +70,7 @@ set (CMAKE_CXX_STANDARD 11)
 add_executable(redis-proxy)
 
 add_executable(redis-brain)
+add_executable(ice-brain)
 add_executable(redis-elastic)
 # add_executable(zenoh-brain)
 
@@ -73,8 +81,10 @@ add_executable(proxy-cli)
 
 target_compile_options(redis-proxy PRIVATE "-DBROKER_REDIS")
 # target_compile_options(zenoh-proxy PRIVATE "-DBROKER_ZENOH")
+target_compile_options(ice-brain PRIVATE "-DBROKER_ICE")
 target_compile_options(redis-brain PRIVATE "-DBROKER_REDIS")
 target_compile_options(redis-elastic PRIVATE "-DBROKER_REDIS")
+target_compile_options(ice-brain PRIVATE ${ICEORYX_WARNINGS} ${ICEORYX_SANITIZER_FLAGS})
 
 # target_compile_options(zenoh-brain PRIVATE "-DBROKER_ZENOH")
 
@@ -108,7 +118,7 @@ target_sources(test PRIVATE
   src/serial.cpp 
   src/SessionUdp.cpp
   src/Udp.cpp 
-  src/BrokerRedis.cpp
+  ${BROKER}/BrokerRedis.cpp
   src/logger.cpp
   src/Sys.cpp
   src/limero.cpp
@@ -126,7 +136,7 @@ target_sources(test PRIVATE
   src/serial.cpp 
   src/SessionUdp.cpp
   src/Udp.cpp 
-  src/BrokerRedis.cpp
+  ${BROKER}/BrokerRedis.cpp
   src/logger.cpp
   src/Sys.cpp
   src/limero.cpp
@@ -143,7 +153,18 @@ src/limero.cpp
 src/logger.cpp
 ${COMMON}/CborSerializer.cpp
 ${COMMON}/CborDeserializer.cpp
-src/BrokerRedis.cpp
+${BROKER}/BrokerRedis.cpp
+${COMMON}/CborDump.cpp
+src/brain.cpp
+${COMMON}/util.cpp )
+
+target_sources(ice-brain PRIVATE
+src/Sys.cpp
+src/limero.cpp
+src/logger.cpp
+${COMMON}/CborSerializer.cpp
+${COMMON}/CborDeserializer.cpp
+${BROKER}/BrokerIceoryx.cpp
 ${COMMON}/CborDump.cpp
 src/brain.cpp
 ${COMMON}/util.cpp )
@@ -155,7 +176,7 @@ src/limero.cpp
 src/logger.cpp
 ${COMMON}/CborSerializer.cpp
 ${COMMON}/CborDeserializer.cpp
-src/BrokerRedis.cpp
+${BROKER}/BrokerRedis.cpp
 ${COMMON}/CborDump.cpp
 src/redis-elastic.cpp
 ${COMMON}/util.cpp )
@@ -172,6 +193,9 @@ ${COMMON}/CborDump.cpp
 src/udp_client.cpp
 src/Udp.cpp
 ${COMMON}/util.cpp )
+
+# link with YARP libraries
+target_link_libraries(ice-brain iceoryx_posh::iceoryx_posh)
 
 target_link_libraries(redis-proxy 
 -L/home/lieven/workspace/tinycbor/lib -l:libtinycbor.a
@@ -200,7 +224,7 @@ target_sources(zenoh-proxy PRIVATE
   src/serial.cpp 
   src/SessionUdp.cpp
   src/Udp.cpp 
-  src/BrokerZenoh.cpp
+  ${BROKER}/BrokerZenoh.cpp
   src/logger.cpp
   src/Sys.cpp
   src/limero.cpp
@@ -270,6 +294,13 @@ target_link_libraries(redis-brain
 -L/home/lieven/workspace/tinycbor/lib -l:libtinycbor.a
 -lpthread  
 -lhiredis
+-lrt  
+-latomic)
+
+target_link_libraries(ice-brain 
+iceoryx_posh::iceoryx_posh
+-L/home/lieven/workspace/tinycbor/lib -l:libtinycbor.a
+-lpthread  
 -lrt  
 -latomic)
 

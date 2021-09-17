@@ -1,4 +1,6 @@
+#include "log.h"
 #include "limero.h"
+
 
 #include <asm-generic/ioctls.h>
 #include <errno.h>
@@ -132,8 +134,8 @@ int Thread::enqueue(Invoker *invoker) {
       return ENOBUFS;
     }
   return 0;
-};
-int Thread::enqueueFromIsr(Invoker *invoker) { return enqueue(invoker); };
+}
+int Thread::enqueueFromIsr(Invoker *invoker) { return enqueue(invoker); }
 
 void Thread::run() {
   INFO("Thread '%s' started ", name());

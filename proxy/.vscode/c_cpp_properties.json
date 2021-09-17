@@ -6,6 +6,7 @@
                 "/usr/local/include",
                 "${workspaceFolder}/build/_deps/googletest-src/googletest/include/",
                 "${workspaceFolder}/../common/",
+                "${workspaceFolder}/../broker/",
                 "${workspaceFolder}/../../limero/inc/",
                 "${workspaceFolder}/../../zenoh-c/include/",
                 "${workspaceFolder}/../../tinycbor/src",

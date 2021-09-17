@@ -871,7 +871,7 @@ public:
   ValueFlow<uint32_t> interval = 500;
   Poller(Thread &t) : Actor(t), _pollInterval(t, 500, true)
   {
-    _pollInterval >> [&](const TimerMsg tm)
+    _pollInterval >> [&](const TimerMsg )
     {
       if (_requestables.size() && connected())
         _requestables[_idx++ % _requestables.size()]->request();

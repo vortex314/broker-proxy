@@ -1,6 +1,7 @@
 #include <ArduinoJson.h>
 #include <config.h>
 #include <log.h>
+#include <limero.h>
 #include <stdio.h>
 #include <util.h>
 
@@ -17,6 +18,9 @@ LogS logger;
 #endif
 #ifdef BROKER_REDIS
 #include <BrokerRedis.h>
+#endif
+#ifdef BROKER_ICE
+#include <BrokerIceoryx.h>
 #endif
 #include <CborDeserializer.h>
 #include <CborDump.h>
@@ -98,6 +102,18 @@ int main(int argc, char **argv) {
     int rc = broker.connect("brain");
     TimeoutFlow<uint64_t> fl(workerThread, 2000);
 #endif
+#ifdef BROKER_ICE
+    BrokerIceoryx broker(workerThread, brokerConfig);
+    broker.init();
+    int rc = broker.connect("brain");
+    TimeoutFlow<uint64_t> fl(workerThread, 2000);
+#endif
+  auto& pub = broker.publisher<uint64_t>("src/brain/system/uptime");
+
+  ticker >> [&](const TimerMsg& ){
+    INFO("ticker");
+    pub.on(Sys::millis());
+  };
 
 
     broker.subscriber<int>("") >>

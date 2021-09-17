@@ -36,7 +36,7 @@ CborDeserializer &CborDeserializer::get(Bytes &t) {
   size_t size;
   if (!_err && cbor_value_is_byte_string(&_it) &&
       cbor_value_calculate_string_length(&_it, &size) == 0) {
-    byte *temp;
+    uint8_t* temp;
     size_t size;
     _err = cbor_value_dup_byte_string(&_it, &temp, &size, 0);
     assert(_err == CborNoError);
@@ -133,7 +133,8 @@ CborDeserializer &CborDeserializer::fromBytes(const Bytes &bs) {
   _size = bs.size() < _capacity ? bs.size() : _capacity;
   memcpy(_buffer, bs.data(), _size);
   return *this;
-};
+}
 bool CborDeserializer::success() {
+ 
   return _err == 0;
-};
+}
