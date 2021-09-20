@@ -60,9 +60,9 @@ int BrokerIceoryx::init() {
 //========================================================================
 ServiceDescription BrokerIceoryx::makeServiceDescription(string topic) {
   vector<string> element = split(topic, '/');
-  IdString_t service = {"65535"};
-  IdString_t instance = "65535";
-  IdString_t event = "65535";
+  IdString_t service ;
+  IdString_t instance ;
+  IdString_t event ;
   if (element.size() > 1 && element[1].size())
     service.unsafe_assign(element[1]);
   if (element.size() > 2 && element[2].size())

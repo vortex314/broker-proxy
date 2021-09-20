@@ -13,10 +13,9 @@ include(IceoryxPlatform)
 
 set(CMAKE_CXX_STANDARD 11)
 
-add_definitions( -DLINUX  )
-add_definitions(-DCATCH_CONFIG_DISABLE)
-set(CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS} )
-set(CMAKE_C_FLAGS ${CMAKE_C_FLAGS} )
+add_definitions( -DLINUX -DCATCH_CONFIG_DISABLE)
+set(CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS} -g )
+set(CMAKE_C_FLAGS ${CMAKE_C_FLAGS} -g )
 target_compile_options(redis-brain PRIVATE "-DBROKER_REDIS")
 target_compile_options(ice-brain PRIVATE "-DBROKER_ICE" ) #  ${ICEORYX_WARNINGS} ${ICEORYX_SANITIZER_FLAGS}  )
 

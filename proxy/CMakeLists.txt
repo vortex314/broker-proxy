@@ -41,21 +41,22 @@ add_definitions(-DZENOH_LINUX -DZENOH_TRANSPORT_UDP_IP -DZENOH_DEBUG=1 -DLINUX -
 # set(ZENOHC /home/lieven/workspace/zenoh-c)
 set(HIREDIS ../hiredis )
 # set(LIMERO /home/lieven/workspace/limero )
-set(BROKER ../broker)
+set(BROKER ../broker/src)
+set(LINUX ../linux/src)
 set(TINYCBOR ../tinycbor )
 set(ETL ../etl )
-set(COMMON ../common )
+set(COMMON ../common/src )
 
 
 include_directories(
   src 
   /usr/local/include
-#  ${ZENOHC}/include
   ${COMMON}
   ${TINYCBOR}/src
   ${ETL}/include
   ${HIREDIS}
   ${BROKER}
+  ${LINUX}
 /home/lieven/workspace/ArduinoJson/src )
 
 add_definitions(-DCATCH_CONFIG_DISABLE)
@@ -64,64 +65,50 @@ set(CMAKE_C_FLAGS "${CMAKE_CXX_FLAGS} -g -DZENOH_LINUX -DZENOH_TRANSPORT_UDP_IP 
 # set(CMAKE_BUILD_TYPE Debug)
 
 set (CMAKE_CXX_STANDARD 11)
- 
-# set up our program
-# add_executable(zenoh-proxy)
-add_executable(redis-proxy)
 
-add_executable(redis-brain)
-add_executable(ice-brain)
+add_executable(serialProxy)
+
 add_executable(redis-elastic)
-# add_executable(zenoh-brain)
 
 add_executable(test)
 add_executable(redis-test)
 add_executable(udp-client)
 add_executable(proxy-cli)
 
-target_compile_options(redis-proxy PRIVATE "-DBROKER_REDIS")
-# target_compile_options(zenoh-proxy PRIVATE "-DBROKER_ZENOH")
-target_compile_options(ice-brain PRIVATE "-DBROKER_ICE")
-target_compile_options(redis-brain PRIVATE "-DBROKER_REDIS")
+target_compile_options(serialProxy PRIVATE "-DBROKER_REDIS")
 target_compile_options(redis-elastic PRIVATE "-DBROKER_REDIS")
-target_compile_options(ice-brain PRIVATE ${ICEORYX_WARNINGS} ${ICEORYX_SANITIZER_FLAGS})
-
-# target_compile_options(zenoh-brain PRIVATE "-DBROKER_ZENOH")
-
-
-
 
 target_sources(test PRIVATE 
-  src/limero.cpp
+${LINUX}/limero.cpp
   src/test.cpp 
-  src/logger.cpp
-  src/Sys.cpp
+  ${LINUX}/logger.cpp
+  ${LINUX}/Sys.cpp
   ${COMMON}/CborSerializer.cpp
   ${COMMON}/CborDeserializer.cpp
   ${COMMON}/CborDump.cpp
  ) 
 
  target_sources(redis-test PRIVATE 
-  src/limero.cpp
-  src/redis-test.cpp 
-  src/logger.cpp
-  src/Sys.cpp
+ ${LINUX}/limero.cpp
+ src/redis-test.cpp 
+ ${LINUX}/logger.cpp
+ ${LINUX}/Sys.cpp
   ${COMMON}/CborSerializer.cpp
   ${COMMON}/CborDeserializer.cpp
   ${COMMON}/CborDump.cpp
  ) 
 
-  target_sources(redis-proxy PRIVATE 
-  src/proxy.cpp 
+  target_sources(serialProxy PRIVATE 
+  src/serialProxy.cpp 
   src/config.cpp 
   src/SessionSerial.cpp
   src/serial.cpp 
   src/SessionUdp.cpp
   src/Udp.cpp 
   ${BROKER}/BrokerRedis.cpp
-  src/logger.cpp
-  src/Sys.cpp
-  src/limero.cpp
+  ${LINUX}/logger.cpp
+  ${LINUX}/Sys.cpp
+  ${LINUX}/limero.cpp
   ${COMMON}/ppp_frame.cpp 
   ${COMMON}/CborSerializer.cpp
   ${COMMON}/CborDeserializer.cpp
@@ -137,9 +124,9 @@ target_sources(test PRIVATE
   src/SessionUdp.cpp
   src/Udp.cpp 
   ${BROKER}/BrokerRedis.cpp
-  src/logger.cpp
-  src/Sys.cpp
-  src/limero.cpp
+  ${LINUX}/logger.cpp
+  ${LINUX}/Sys.cpp
+  ${LINUX}/limero.cpp
   ${COMMON}/ppp_frame.cpp 
   ${COMMON}/CborSerializer.cpp
   ${COMMON}/CborDeserializer.cpp
@@ -147,33 +134,11 @@ target_sources(test PRIVATE
   ${COMMON}/Frame.cpp
   ${COMMON}/util.cpp ) 
 
-target_sources(redis-brain PRIVATE
-src/Sys.cpp
-src/limero.cpp
-src/logger.cpp
-${COMMON}/CborSerializer.cpp
-${COMMON}/CborDeserializer.cpp
-${BROKER}/BrokerRedis.cpp
-${COMMON}/CborDump.cpp
-src/brain.cpp
-${COMMON}/util.cpp )
-
-target_sources(ice-brain PRIVATE
-src/Sys.cpp
-src/limero.cpp
-src/logger.cpp
-${COMMON}/CborSerializer.cpp
-${COMMON}/CborDeserializer.cpp
-${BROKER}/BrokerIceoryx.cpp
-${COMMON}/CborDump.cpp
-src/brain.cpp
-${COMMON}/util.cpp )
-
 
 target_sources(redis-elastic PRIVATE
-src/Sys.cpp
-src/limero.cpp
-src/logger.cpp
+${LINUX}/Sys.cpp
+${LINUX}/limero.cpp
+${LINUX}/logger.cpp
 ${COMMON}/CborSerializer.cpp
 ${COMMON}/CborDeserializer.cpp
 ${BROKER}/BrokerRedis.cpp
@@ -181,12 +146,10 @@ ${COMMON}/CborDump.cpp
 src/redis-elastic.cpp
 ${COMMON}/util.cpp )
 
-
-
 target_sources(udp-client PRIVATE
-src/Sys.cpp
-src/limero.cpp
-src/logger.cpp
+${LINUX}/Sys.cpp
+${LINUX}/limero.cpp
+${LINUX}/logger.cpp
 ${COMMON}/CborSerializer.cpp
 ${COMMON}/CborDeserializer.cpp
 ${COMMON}/CborDump.cpp
@@ -194,10 +157,7 @@ src/udp_client.cpp
 src/Udp.cpp
 ${COMMON}/util.cpp )
 
-# link with YARP libraries
-target_link_libraries(ice-brain iceoryx_posh::iceoryx_posh)
-
-target_link_libraries(redis-proxy 
+target_link_libraries(serialProxy 
 -L/home/lieven/workspace/tinycbor/lib -l:libtinycbor.a
 -lpthread  
 -lhiredis
@@ -210,61 +170,6 @@ target_link_libraries(proxy-cli
 -lhiredis
 -lrt  
 -latomic)
-#[[
-target_sources(dtr_rts PRIVATE 
-  src/DtrRts.cpp
-  src/logger.cpp
-  src/Sys.cpp
- )
- 
-target_sources(zenoh-proxy PRIVATE 
-  src/proxy.cpp 
-  src/config.cpp 
-  src/SessionSerial.cpp
-  src/serial.cpp 
-  src/SessionUdp.cpp
-  src/Udp.cpp 
-  ${BROKER}/BrokerZenoh.cpp
-  src/logger.cpp
-  src/Sys.cpp
-  src/limero.cpp
-  ${COMMON}/ppp_frame.cpp 
-  ${COMMON}/CborSerializer.cpp
-  ${COMMON}/CborDeserializer.cpp
-  ${COMMON}/CborDump.cpp
-  ${COMMON}/Frame.cpp
-  ${COMMON}/util.cpp ) 
-
-target_sources(zenoh-brain PRIVATE
-src/Sys.cpp
-src/limero.cpp
-src/logger.cpp
-${COMMON}/CborSerializer.cpp
-${COMMON}/CborDeserializer.cpp
-src/BrokerZenoh.cpp
-${COMMON}/CborDump.cpp
-src/brain.cpp
-${COMMON}/util.cpp )
-
-target_link_libraries(zenoh-proxy 
--L/home/lieven/workspace/tinycbor/lib -l:libtinycbor.a
--L/usr/local/lib/ -lzenohc
--lpthread  
--lrt 
--latomic)
-
-target_link_libraries(zenoh-brain 
--L/home/lieven/workspace/tinycbor/lib -l:libtinycbor.a
--L/usr/local/lib/ -lzenohc
--lpthread  
--lrt  
--latomic)
-
-target_link_libraries(dtr_rts 
--lpthread  
--lrt  
--latomic)
-]]
 
 target_link_libraries(redis-test 
 -L/home/lieven/workspace/tinycbor/lib -l:libtinycbor.a
@@ -286,20 +191,6 @@ gtest_main
 target_link_libraries(redis-test 
 -L/home/lieven/workspace/tinycbor/lib -l:libtinycbor.a
 gtest_main
--lpthread  
--lrt  
--latomic)
-
-target_link_libraries(redis-brain 
--L/home/lieven/workspace/tinycbor/lib -l:libtinycbor.a
--lpthread  
--lhiredis
--lrt  
--latomic)
-
-target_link_libraries(ice-brain 
-iceoryx_posh::iceoryx_posh
--L/home/lieven/workspace/tinycbor/lib -l:libtinycbor.a
 -lpthread  
 -lrt  
 -latomic)
