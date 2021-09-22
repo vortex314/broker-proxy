@@ -216,6 +216,21 @@ int BrokerRedis::command(const char *format, ...) {
   return EINVAL;
 }
 
+int BrokerRedis::request(string cmd, std::function<void(redisReply* )> func) {
+  if (!connected()) return ENOTCONN;
+
+  redisReply *reply = (redisReply*)redisCommand(_publishContext, cmd.c_str());
+  if (reply) {
+    func(reply);
+    freeReplyObject(reply);
+    return 0;
+  }
+  LOGW << "command : " << cmd << " failed " << LEND;
+  disconnect();
+  connect(_node);
+  return EINVAL;
+}
+
 #include <regex>
 bool BrokerRedis::match(string pattern, string topic) {
   std::regex patternRegex(pattern);

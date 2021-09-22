@@ -1,23 +1,14 @@
 cmake_minimum_required(VERSION 3.12)
 project(spine)
 add_executable(redis-brain)
-add_executable(ice-brain)
 
 include(GNUInstallDirs)
-
-find_package(iceoryx_posh CONFIG REQUIRED)
-find_package(iceoryx_hoofs CONFIG REQUIRED)
-
-get_target_property(ICEORYX_CXX_STANDARD iceoryx_posh::iceoryx_posh CXX_STANDARD)
-include(IceoryxPlatform)
 
 set(CMAKE_CXX_STANDARD 11)
 
 add_definitions( -DLINUX -DCATCH_CONFIG_DISABLE)
 set(CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS} -g )
 set(CMAKE_C_FLAGS ${CMAKE_C_FLAGS} -g )
-target_compile_options(redis-brain PRIVATE "-DBROKER_REDIS")
-target_compile_options(ice-brain PRIVATE "-DBROKER_ICE" ) #  ${ICEORYX_WARNINGS} ${ICEORYX_SANITIZER_FLAGS}  )
 
 find_path(HIREDIS_HEADER hiredis)
 # target_include_directories(target PUBLIC ${HIREDIS_HEADER})
@@ -36,7 +27,6 @@ set(TINYCBOR ../tinycbor/src )
 set(ETL ../etl )
 set(COMMON ../common/src )
 set(LINUX ../linux/src )
-
 
 include_directories(
   src 
@@ -60,19 +50,6 @@ ${COMMON}/CborDump.cpp
 src/brain.cpp
 ${COMMON}/util.cpp )
 
-target_sources(ice-brain PRIVATE
-${LINUX}/Sys.cpp
-${LINUX}/limero.cpp
-${LINUX}/logger.cpp
-${COMMON}/CborSerializer.cpp
-${COMMON}/CborDeserializer.cpp
-${BROKER}/BrokerIceoryx.cpp
-${COMMON}/CborDump.cpp
-src/brain.cpp
-${COMMON}/util.cpp )
-
-target_link_libraries(ice-brain iceoryx_posh::iceoryx_posh)
-
 target_link_libraries(redis-brain 
 -L/home/lieven/workspace/tinycbor/lib -l:libtinycbor.a
 -lpthread  
@@ -80,10 +57,4 @@ target_link_libraries(redis-brain
 -lrt  
 -latomic)
 
-target_link_libraries(ice-brain 
-iceoryx_posh::iceoryx_posh
--L/home/lieven/workspace/tinycbor/lib -l:libtinycbor.a
--lpthread  
--lrt  
--latomic)
 

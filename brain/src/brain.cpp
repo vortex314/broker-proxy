@@ -1,27 +1,20 @@
 #include <ArduinoJson.h>
 #include <config.h>
-#include <log.h>
 #include <limero.h>
+#include <log.h>
 #include <stdio.h>
+#include <unistd.h>
 #include <util.h>
 
 #include <thread>
 #include <unordered_map>
 #include <utility>
-#include <unistd.h>
 
 using namespace std;
 
 LogS logger;
-#ifdef BROKER_ZENOH
-#include <BrokerZenoh.h>
-#endif
-#ifdef BROKER_REDIS
+
 #include <BrokerRedis.h>
-#endif
-#ifdef BROKER_ICE
-#include <BrokerIceoryx.h>
-#endif
 #include <CborDeserializer.h>
 #include <CborDump.h>
 #include <CborSerializer.h>
@@ -69,7 +62,7 @@ template <typename T>
 class TimeoutFlow : public LambdaFlow<T, bool>, public Actor {
   TimerSource _watchdogTimer;
 
-public:
+ public:
   TimeoutFlow(Thread &thr, uint32_t delay)
       : Actor(thr), _watchdogTimer(thr, delay, true, "watchdog") {
     this->emit(false);
@@ -91,80 +84,79 @@ int main(int argc, char **argv) {
   CborSerializer cborSerializer(1024);
   CborDeserializer cborDeserializer(1024);
   TimerSource ticker(workerThread, 3000, true, "ticker");
-#ifdef BROKER_ZENOH
-  BrokerZenoh broker(workerThread, brokerConfig);
+
+  BrokerRedis broker(workerThread, brokerConfig);
   broker.init();
   int rc = broker.connect("brain");
-#endif
-#ifdef BROKER_REDIS
-    BrokerRedis broker(workerThread, brokerConfig);
-    broker.init();
-    int rc = broker.connect("brain");
-    TimeoutFlow<uint64_t> fl(workerThread, 2000);
-#endif
-#ifdef BROKER_ICE
-    BrokerIceoryx broker(workerThread, brokerConfig);
-    broker.init();
-    int rc = broker.connect("brain");
-    TimeoutFlow<uint64_t> fl(workerThread, 2000);
-#endif
-  auto& pub = broker.publisher<uint64_t>("src/brain/system/uptime");
+  TimeoutFlow<uint64_t> fl(workerThread, 2000);
 
-  ticker >> [&](const TimerMsg& ){
+  auto &pub = broker.publisher<uint64_t>("src/brain/system/uptime");
+
+  ticker >> [&](const TimerMsg &) {
     INFO("ticker");
     pub.on(Sys::millis());
+    broker.request("keys *", [&](redisReply *reply) {
+      for (int i = 0; i < reply->elements; i++) {
+        string key = reply->element[i]->str;
+        if (key.rfind("ts:", 0) == 0) {
+          INFO(" key[%d] :  %s ", i, key.c_str());
+          vector<string> parts = split(key, '/');
+          broker.command(
+              stringFormat("ts.alter %s labels node %s object %s property %s",
+                           key.c_str(), parts[1].c_str(), parts[2].c_str(),
+                           parts[3].c_str())
+                  .c_str());
+        }
+      }
+    });
+  };
+
+  broker.subscriber<int>("") >>
+      *new LambdaFlow<int, uint64_t>([&](uint64_t &out, const int &) {
+        out = Sys::micros();
+        return true;
+      }) >>
+      broker.publisher<uint64_t>("src/brain/system/uptime");
+
+  broker.subscriber<uint64_t>("src/brain/system/uptime") >>
+      *new LambdaFlow<uint64_t, uint64_t>([&](uint64_t &out,
+                                              const uint64_t &in) {
+        out = Sys::micros() - in;
+        LOGI << " recv ts " << in << " latency : " << out << " usec " << LEND;
+        return true;
+      }) >>
+      broker.publisher<uint64_t>("src/brain/system/latency");
+
+  broker.subscriber<bool>("src/stellaris/system/alive") >>
+      [&](const bool &b) { INFO("alive."); };
+
+  broker.subscribe("src/*");
+  broker.incoming() >> [&](const PubMsg &msg) {
+    //    broker.command(stringFormat("SET %s \%b", key.c_str()).c_str(),
+    //    bs.data(), bs.size());
+    vector<string> parts = split(msg.topic, '/');
+    string key = msg.topic;
+    int64_t i64;
+    if (cborDeserializer.fromBytes(msg.payload).begin().get(i64).success()) {
+      broker.command(stringFormat("SET %s %ld ", key.c_str(), i64).c_str());
+      broker.command(
+          stringFormat("TS.ADD ts:%s %lu %ld", key.c_str(), Sys::millis(), i64)
+              .c_str());
+    }
+    double d;
+    if (cborDeserializer.fromBytes(msg.payload).begin().get(d).success()) {
+      broker.command(stringFormat("SET %s %f ", key.c_str(), d).c_str());
+      broker.command(
+          stringFormat("TS.ADD ts:%s %lu %f", key.c_str(), Sys::millis(), d)
+              .c_str());
+    }
+    string s;
+    if (cborDeserializer.fromBytes(msg.payload).begin().get(s).success())
+      broker.command(
+          stringFormat("SET  %s \"%s\" ", key.c_str(), s.c_str()).c_str());
   };
 
 
-    broker.subscriber<int>("") >>
-        * new LambdaFlow<int, uint64_t>([&](uint64_t &out, const int &) {
-          out = Sys::micros();
-          return true;
-        }) >>
-        broker.publisher<uint64_t>("src/brain/system/uptime");
-
-    broker.subscriber<uint64_t>("src/brain/system/uptime") >>
-        * new LambdaFlow<uint64_t, uint64_t>([&](uint64_t &out, const uint64_t &in) {
-          out = Sys::micros() - in;
-          LOGI << " recv ts " << in << " latency : " << out << " usec " << LEND;
-          return true;
-        }) >>
-        broker.publisher<uint64_t>("src/brain/system/latency");
-
-#ifdef BROKER_REDIS
-    broker.subscriber<bool>("src/stellaris/system/alive") >>
-        [&](const bool &b) { INFO("alive."); };
-
-    broker.subscribe("src/*");
-    broker.incoming() >> [&](const PubMsg &msg) {
-      //    broker.command(stringFormat("SET %s \%b", key.c_str()).c_str(),
-      //    bs.data(), bs.size());
-      vector<string> parts = split(msg.topic, '/');
-      string key = msg.topic;
-      int64_t i64;
-      if (cborDeserializer.fromBytes(msg.payload).begin().get(i64).success()) {
-        broker.command(stringFormat("SET %s %ld ", key.c_str(), i64).c_str());
-        broker.command(stringFormat("TS.ADD ts-%s %lu %ld", key.c_str(),
-                                    Sys::millis(), i64)
-                           .c_str());
-      }
-      double d;
-      if (cborDeserializer.fromBytes(msg.payload).begin().get(d).success()) {
-        broker.command(stringFormat("SET %s %f ", key.c_str(), d).c_str());
-        broker.command(
-            stringFormat("TS.ADD ts-%s %lu %f", key.c_str(), Sys::millis(), d)
-                .c_str());
-      }
-      string s;
-      if (cborDeserializer.fromBytes(msg.payload).begin().get(s).success())
-        broker.command(
-            stringFormat("SET  %s \"%s\" ", key.c_str(), s.c_str()).c_str());
-    };
-#endif
-
-    workerThread.run();
-    broker.disconnect();
+  workerThread.run();
+  broker.disconnect();
 }
-
-
-

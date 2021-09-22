@@ -45,6 +45,7 @@ class BrokerRedis : public BrokerBase {
   bool match(string pattern, string source);
   redisReply* xread(string key);
   int command(const char *format, ...);
+  int request(string cmd,std::function<void(redisReply* )> func);
   int getId(string);
   int newRedisPublisher(string topic);
   vector<PubMsg> query(string);
