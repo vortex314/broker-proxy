@@ -32,27 +32,28 @@ Config loadConfig(int argc, char **argv) {
   cfg["broker"]["port"] = 6379;
   // override args
   int c;
-  while ((c = getopt(argc, argv, "f:e:h:p:")) != -1) switch (c) {
-      case 'e':
-        cfg["elastic"]["host"] = optarg;
-        break;
-      case 'f':
-        cfg["elastic"]["port"] = atoi(optarg);
-        break;
-      case 'h':
-        cfg["broker"]["host"] = optarg;
-        break;
-      case 'p':
-        cfg["broker"]["port"] = atoi(optarg);
-        break;
-      case '?':
-        printf("Usage %s -h <host> -p <port> -s <serial_port> -b <baudrate>\n",
-               argv[0]);
-        break;
-      default:
-        WARN("Usage %s -h <host> -p <port> -s <serial_port> -b <baudrate>\n",
+  while ((c = getopt(argc, argv, "f:e:h:p:")) != -1)
+    switch (c) {
+    case 'e':
+      cfg["elastic"]["host"] = optarg;
+      break;
+    case 'f':
+      cfg["elastic"]["port"] = atoi(optarg);
+      break;
+    case 'h':
+      cfg["broker"]["host"] = optarg;
+      break;
+    case 'p':
+      cfg["broker"]["port"] = atoi(optarg);
+      break;
+    case '?':
+      printf("Usage %s -h <host> -p <port> -s <serial_port> -b <baudrate>\n",
              argv[0]);
-        abort();
+      break;
+    default:
+      WARN("Usage %s -h <host> -p <port> -s <serial_port> -b <baudrate>\n",
+           argv[0]);
+      abort();
     }
 
   string sCfg;
@@ -72,7 +73,7 @@ class ElasticIndex : public Actor {
   string _url, _host;
   uint16_t _port;
 
- public:
+public:
   ElasticIndex(Thread &thread, Config config, string name)
       : Actor(thread), _index(name), _putIndex(20) {
     _putIndex.async(thread);
@@ -122,7 +123,7 @@ template <typename T>
 class TimeoutFlow : public LambdaFlow<T, bool>, public Actor {
   TimerSource _watchdogTimer;
 
- public:
+public:
   TimeoutFlow(Thread &thr, uint32_t delay)
       : Actor(thr), _watchdogTimer(thr, delay, true, "watchdog") {
     this->emit(false);
@@ -136,7 +137,8 @@ class TimeoutFlow : public LambdaFlow<T, bool>, public Actor {
 };
 
 void replyToMap(JsonObject &json, redisReply *reply) {
-  if (reply->type != REDIS_REPLY_ARRAY) return;
+  if (reply->type != REDIS_REPLY_ARRAY)
+    return;
   for (int i = 0; i < reply->elements; i += 2) {
     string key = reply->element[i]->str;
     redisReply *el = reply->element[i + 1];
@@ -181,27 +183,37 @@ int main(int argc, char **argv) {
     json["object"] = parts[2];
     json["property"] = parts[3];
     json["timestamp"] = Sys::millis();
+    json["key"] = msg.topic;
+
     double doubleValue;
     int64_t int64Value;
+    string message;
     string request;
     if (cborDeserializer.fromBytes(msg.payload)
             .begin()
             .get(doubleValue)
             .success()) {
       json["value"] = doubleValue;
+      json["msg"] = to_string(doubleValue);
     } else if (cborDeserializer.fromBytes(msg.payload)
                    .begin()
                    .get(int64Value)
                    .success()) {
       json["value"] = int64Value;
+      json["msg"] = to_string(int64Value);
+    } else if (cborDeserializer.fromBytes(msg.payload)
+                   .begin()
+                   .get(message)
+                   .success()) {
+      json["msg"] = message;
+
     } else {
       jsonDoc.clear();
       return;
     }
     serializeJson(jsonDoc, request);
     DEBUG("request :%s", request.c_str());
-    indexMetrics.putIndex().on(request);
-    jsonDoc.clear();
+    indexLogs.putIndex().on(request);
   };
   TimeoutFlow<uint64_t> fl(workerThread, 2000);
 
